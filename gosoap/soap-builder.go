@@ -90,10 +90,10 @@ func (msg *SoapMessage) AddStringBodyContent(data string) {
 }
 
 //AddBodyContent for Envelope
-func (msg *SoapMessage) AddBodyContent(element *etree.Element) {
+func (msg *SoapMessage) AddBodyContent(element *etree.Element) error {
 	doc := etree.NewDocument()
 	if err := doc.ReadFromString(msg.String()); err != nil {
-		log.Println(err.Error())
+		return err
 	}
 	//doc.FindElement("./Envelope/Body").AddChild(element)
 	bodyTag := doc.Root().SelectElement("Body")
@@ -103,6 +103,7 @@ func (msg *SoapMessage) AddBodyContent(element *etree.Element) {
 	res, _ := doc.WriteToString()
 
 	*msg = SoapMessage(res)
+	return nil
 }
 
 //AddBodyContents for Envelope body
@@ -209,22 +210,6 @@ func (msg *SoapMessage) AddRootNamespaces(namespaces map[string]string) {
 	for key, value := range namespaces {
 		msg.AddRootNamespace(key, value)
 	}
-
-	/*
-		doc := etree.NewDocument()
-		if err := doc.ReadFromString(msg.String()); err != nil {
-			//log.Println(err.Error())
-			return err
-		}
-
-		for key, value := range namespaces {
-			doc.Root().CreateAttr("xmlns:" + key, value)
-		}
-
-		doc.IndentTabs()
-		res, _ := doc.WriteToString()
-
-		*msg = SoapMessage(res)*/
 }
 
 func buildSoapRoot() *etree.Document {
@@ -243,37 +228,15 @@ func buildSoapRoot() *etree.Document {
 }
 
 //AddWSSecurity Header for soapMessage
-func (msg *SoapMessage) AddWSSecurity(username, password string) {
-	//doc := etree.NewDocument()
-	//if err := doc.ReadFromString(msg.String()); err != nil {
-	//	log.Println(err.Error())
-	//}
-	/*
-		Getting an WS-Security struct representation
-	*/
+func (msg *SoapMessage) AddWSSecurity(username, password string) error {
 	auth := NewSecurity(username, password)
-
-	/*
-		Adding WS-Security namespaces to root element of SOAP message
-	*/
-	//msg.AddRootNamespace("wsse", "http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext1.0.xsd")
-	//msg.AddRootNamespace("wsu", "http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility1.0.xsd")
-
 	soapReq, err := xml.MarshalIndent(auth, "", "  ")
 	if err != nil {
-		//log.Printf("error: %v\n", err.Error())
-		panic(err)
+		return err
 	}
 
-	/*
-		Adding WS-Security struct to SOAP header
-	*/
 	msg.AddStringHeaderContent(string(soapReq))
-
-	//doc.IndentTabs()
-	//res, _ := doc.WriteToString()
-	//
-	//*msg = SoapMessage(res)
+	return nil
 }
 
 //AddAction Header handling for soapMessage

@@ -1,6 +1,7 @@
 package onvif
 
 import (
+	"context"
 	"encoding/xml"
 	"errors"
 	"fmt"
@@ -12,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/beevik/etree"
+
 	"github.com/kikimor/onvif/device"
 	"github.com/kikimor/onvif/gosoap"
 	"github.com/kikimor/onvif/networking"
@@ -139,7 +141,8 @@ func GetAvailableDevicesAtSpecificEthernetInterface(interfaceName string) []Devi
 				continue
 			}
 
-			dev, err := NewDevice(DeviceParams{Xaddr: strings.Split(xaddr, " ")[0]})
+			dev := NewDevice(DeviceParams{Xaddr: strings.Split(xaddr, " ")[0]})
+			err := dev.Inspect()
 
 			if err != nil {
 				fmt.Println("Error", xaddr)
@@ -154,42 +157,68 @@ func GetAvailableDevicesAtSpecificEthernetInterface(interfaceName string) []Devi
 	return nvtDevices
 }
 
-func (dev *Device) getSupportedServices(resp *http.Response) {
+func (dev *Device) getSupportedServices(data []byte) error {
 	doc := etree.NewDocument()
 
-	data, _ := ioutil.ReadAll(resp.Body)
-
 	if err := doc.ReadFromBytes(data); err != nil {
-		//log.Println(err.Error())
-		return
+		return err
 	}
 	services := doc.FindElements("./Envelope/Body/GetCapabilitiesResponse/Capabilities/*/XAddr")
 	for _, j := range services {
 		dev.addEndpoint(j.Parent().Tag, j.Text())
 	}
+
+	return nil
 }
 
 //NewDevice function construct a ONVIF Device entity
-func NewDevice(params DeviceParams) (*Device, error) {
-	dev := new(Device)
-	dev.params = params
-	dev.endpoints = make(map[string]string)
+func NewDevice(params DeviceParams) *Device {
+	dev := Device{
+		params:    params,
+		endpoints: make(map[string]string),
+	}
+
 	dev.addEndpoint("Device", "http://"+dev.params.Xaddr+"/onvif/device_service")
 
 	if dev.params.HttpClient == nil {
 		dev.params.HttpClient = new(http.Client)
 	}
 
+	return &dev
+}
+
+func (dev *Device) Inspect() error {
+	return dev.inspect(dev.CallMethod)
+}
+
+func (dev *Device) InspectWithCtx(ctx context.Context) error {
+	return dev.inspect(func(method interface{}) (*http.Response, error) {
+		return dev.CallMethodWithCtx(ctx, method)
+	})
+}
+
+func (dev *Device) inspect(callMethod func(method interface{}) (*http.Response, error)) error {
 	getCapabilities := device.GetCapabilities{Category: "All"}
 
-	resp, err := dev.CallMethod(getCapabilities)
-
-	if err != nil || resp.StatusCode != http.StatusOK {
-		return nil, errors.New("camera is not available at " + dev.params.Xaddr + " or it does not support ONVIF services")
+	resp, err := callMethod(getCapabilities)
+	if err != nil {
+		return err
 	}
 
-	dev.getSupportedServices(resp)
-	return dev, nil
+	if resp.StatusCode != http.StatusOK {
+		return errors.New("camera is not available at " + dev.params.Xaddr + " or it does not support ONVIF services")
+	}
+
+	data, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+
+	if err := dev.getSupportedServices(data); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (dev *Device) addEndpoint(Key, Value string) {
@@ -211,17 +240,29 @@ func (dev *Device) GetEndpoint(name string) string {
 	return dev.endpoints[name]
 }
 
-func (dev Device) buildMethodSOAP(msg string) (gosoap.SoapMessage, error) {
-	doc := etree.NewDocument()
-	if err := doc.ReadFromString(msg); err != nil {
-		//log.Println("Got error")
-
+func (dev Device) buildMethodSOAP(method interface{}) (gosoap.SoapMessage, error) {
+	output, err := xml.MarshalIndent(method, "  ", "    ")
+	if err != nil {
 		return "", err
 	}
-	element := doc.Root()
+
+	doc := etree.NewDocument()
+	if err := doc.ReadFromString(string(output)); err != nil {
+		return "", err
+	}
 
 	soap := gosoap.NewEmptySOAP()
-	soap.AddBodyContent(element)
+	soap.AddRootNamespaces(Xlmns)
+	if err := soap.AddBodyContent(doc.Root()); err != nil {
+		return "", err
+	}
+
+	//Auth Handling
+	if dev.params.Username != "" && dev.params.Password != "" {
+		if err := soap.AddWSSecurity(dev.params.Username, dev.params.Password); err != nil {
+			return "", err
+		}
+	}
 
 	return soap, nil
 }
@@ -250,35 +291,34 @@ func (dev Device) getEndpoint(endpoint string) (string, error) {
 //CallMethod functions call an method, defined <method> struct.
 //You should use Authenticate method to call authorized requests.
 func (dev Device) CallMethod(method interface{}) (*http.Response, error) {
+	return dev.callMethod(method, networking.SendSoap)
+}
+
+//CallMethodWithCtx functions call an method, defined <method> struct.
+//You should use Authenticate method to call authorized requests.
+func (dev Device) CallMethodWithCtx(ctx context.Context, method interface{}) (*http.Response, error) {
+	return dev.callMethod(method, func(httpClient *http.Client, endpoint, message string) (*http.Response, error) {
+		return networking.SendSoapWithCtx(ctx, httpClient, endpoint, message)
+	})
+}
+
+//callMethod functions call an method, defined <method> struct.
+//You should use Authenticate method to call authorized requests.
+func (dev Device) callMethod(
+	method interface{},
+	sendSoap func(httpClient *http.Client, endpoint, message string) (*http.Response, error),
+) (*http.Response, error) {
+	soap, err := dev.buildMethodSOAP(method)
+	if err != nil {
+		return nil, err
+	}
+
 	pkgPath := strings.Split(reflect.TypeOf(method).PkgPath(), "/")
 	pkg := strings.ToLower(pkgPath[len(pkgPath)-1])
-
 	endpoint, err := dev.getEndpoint(pkg)
 	if err != nil {
 		return nil, err
 	}
-	return dev.callMethodDo(endpoint, method)
-}
 
-//CallMethod functions call an method, defined <method> struct with authentication data
-func (dev Device) callMethodDo(endpoint string, method interface{}) (*http.Response, error) {
-	output, err := xml.MarshalIndent(method, "  ", "    ")
-	if err != nil {
-		return nil, err
-	}
-
-	soap, err := dev.buildMethodSOAP(string(output))
-	if err != nil {
-		return nil, err
-	}
-
-	soap.AddRootNamespaces(Xlmns)
-	soap.AddAction()
-
-	//Auth Handling
-	if dev.params.Username != "" && dev.params.Password != "" {
-		soap.AddWSSecurity(dev.params.Username, dev.params.Password)
-	}
-
-	return networking.SendSoap(dev.params.HttpClient, endpoint, soap.String())
+	return sendSoap(dev.params.HttpClient, endpoint, soap.String())
 }

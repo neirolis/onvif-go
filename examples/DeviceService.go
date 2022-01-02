@@ -27,12 +27,13 @@ func readResponse(resp *http.Response) string {
 
 func main() {
 	//Getting an camera instance
-	dev, err := goonvif.NewDevice(goonvif.DeviceParams{
+	dev := goonvif.NewDevice(goonvif.DeviceParams{
 		Xaddr:      "192.168.13.14:80",
 		Username:   login,
 		Password:   password,
 		HttpClient: new(http.Client),
 	})
+	err := dev.Inspect()
 	if err != nil {
 		panic(err)
 	}

@@ -38,7 +38,8 @@ The following services are implemented:
 If there is a device on the network at the address *192.168.13.42*, and its ONVIF services use the *1234* port, then you can connect to the device in the following way:
 
 ```go
-dev, err := onvif.NewDevice(onvif.DeviceParams{Xaddr: "192.168.13.42:1234"})
+device := onvif.NewDevice(onvif.DeviceParams{Xaddr: "192.168.13.42:1234"})
+err := dev.Inspect()
 ```
 
 *The ONVIF port may differ depending on the device , to find out which port to use, you can go to the web interface of the device. **Usually this is 80 port.***
@@ -49,6 +50,7 @@ If any function of the ONVIF services requires authentication, you must use the 
 
 ```go
 device := onvif.NewDevice(onvif.DeviceParams{Xaddr: "192.168.13.42:1234", Username: "username", Password: password})
+err := dev.Inspect()
 ```
 
 #### Defining Data Types
@@ -94,7 +96,7 @@ To perform any function of one of the ONVIF services whose structure has been de
 ```go
 createUsers := device.CreateUsers{User: onvif.User{Username:"admin", Password:"qwerty", UserLevel:"User"}}
 device := onvif.NewDevice(onvif.DeviceParams{Xaddr: "192.168.13.42:1234", Username: "username", Password: password})
-device.Authenticate("username", "password")
+device.Inspect()
 resp, err := dev.CallMethod(createUsers)
 ```
 
