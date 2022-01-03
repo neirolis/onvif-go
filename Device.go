@@ -243,19 +243,9 @@ func (dev *Device) UpdateDeltaTimeCtx(ctx context.Context) (time.Duration, error
 }
 
 func (dev *Device) updateDeltaTime(callMethod func(method interface{}) (*http.Response, error)) (time.Duration, error) {
-	resp, err := callMethod(device.GetSystemDateAndTime{})
-	if err != nil {
-		return 0, err
-	}
-
-	data, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return 0, err
-	}
-
 	systemDateAndTime := device.GetSystemDateAndTimeResponse{}
-	if err := xml.Unmarshal([]byte(gosoap.SoapMessage(data).Body()), &systemDateAndTime); err != nil {
-		return 0, err
+	if err := dev.request(device.GetSystemDateAndTime{}, &systemDateAndTime, callMethod); err != nil {
+		return 0, nil
 	}
 
 	date := systemDateAndTime.SystemDateAndTime.UTCDateTime
@@ -375,4 +365,40 @@ func (dev Device) callMethod(
 	}
 
 	return sendSoap(dev.params.HttpClient, endpoint, soap.String())
+}
+
+// Request executes a query with request struct and puts the result in response struct.
+func (dev Device) Request(request interface{}, response interface{}) error {
+	return dev.request(response, response, func(method interface{}) (*http.Response, error) {
+		return dev.CallMethod(request)
+	})
+}
+
+// RequestWithCtx executes a context query with request struct and puts the result in response struct.
+func (dev Device) RequestWithCtx(ctx context.Context, request interface{}, response interface{}) error {
+	return dev.request(response, response, func(method interface{}) (*http.Response, error) {
+		return dev.CallMethodWithCtx(ctx, request)
+	})
+}
+
+func (dev Device) request(
+	request interface{},
+	response interface{},
+	callMethod func(method interface{}) (*http.Response, error),
+) error {
+	resp, err := callMethod(request)
+	if err != nil {
+		return err
+	}
+
+	data, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+
+	if err = xml.Unmarshal([]byte(gosoap.SoapMessage(data).Body()), response); err != nil {
+		return err
+	}
+
+	return nil
 }

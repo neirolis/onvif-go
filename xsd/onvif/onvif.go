@@ -1133,9 +1133,9 @@ type SetDateTimeType xsd.String
 type SystemDateTime struct {
 	DateTimeType    SetDateTimeType
 	DaylightSavings xsd.Boolean
-	TimeZone        TimeZoneUnmarshal
-	UTCDateTime     DateTimeUnmarshal
-	LocalDateTime   DateTimeUnmarshal
+	TimeZone        TimeZoneResponse
+	UTCDateTime     DateTimeResponse
+	LocalDateTime   DateTimeResponse
 	Extension       SystemDateTimeExtension
 }
 
@@ -1871,23 +1871,23 @@ type TimeZone struct {
 	TZ xsd.Token `xml:"onvif:TZ"`
 }
 
-type DateTimeUnmarshal struct {
-	Time TimeUnmarshal
-	Date DateUnmarshal
+type DateTimeResponse struct {
+	Time TimeResponse
+	Date DateResponse
 }
 
-type TimeUnmarshal struct {
+type TimeResponse struct {
 	Hour   xsd.Int
 	Minute xsd.Int
 	Second xsd.Int
 }
 
-type DateUnmarshal struct {
+type DateResponse struct {
 	Year  xsd.Int
 	Month xsd.Int
 	Day   xsd.Int
 }
 
-type TimeZoneUnmarshal struct {
+type TimeZoneResponse struct {
 	TZ xsd.Token
 }
