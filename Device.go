@@ -142,7 +142,7 @@ func GetAvailableDevicesAtSpecificEthernetInterface(interfaceName string) []Devi
 			}
 
 			dev := NewDevice(DeviceParams{Xaddr: strings.Split(xaddr, " ")[0]})
-			err := dev.Inspect()
+			_, err := dev.Inspect()
 
 			if err != nil {
 				fmt.Println("Error", xaddr)
@@ -187,38 +187,43 @@ func NewDevice(params DeviceParams) *Device {
 	return &dev
 }
 
-func (dev *Device) Inspect() error {
+func (dev *Device) Inspect() (*device.GetCapabilitiesResponse, error) {
 	return dev.inspect(dev.CallMethod)
 }
 
-func (dev *Device) InspectWithCtx(ctx context.Context) error {
+func (dev *Device) InspectWithCtx(ctx context.Context) (*device.GetCapabilitiesResponse, error) {
 	return dev.inspect(func(method interface{}) (*http.Response, error) {
 		return dev.CallMethodWithCtx(ctx, method)
 	})
 }
 
-func (dev *Device) inspect(callMethod func(method interface{}) (*http.Response, error)) error {
+func (dev *Device) inspect(callMethod func(method interface{}) (*http.Response, error)) (*device.GetCapabilitiesResponse, error) {
 	getCapabilities := device.GetCapabilities{Category: "All"}
 
 	resp, err := callMethod(getCapabilities)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return errors.New("camera is not available at " + dev.params.Xaddr + " or it does not support ONVIF services")
+		return nil, errors.New("camera is not available at " + dev.params.Xaddr + " or it does not support ONVIF services")
 	}
 
 	data, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if err := dev.getSupportedServices(data); err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	capabilitiesResponse := device.GetCapabilitiesResponse{}
+	if err := xml.Unmarshal([]byte(gosoap.SoapMessage(data).Body()), &capabilitiesResponse); err != nil {
+		return nil, err
+	}
+
+	return &capabilitiesResponse, nil
 }
 
 func (dev *Device) addEndpoint(Key, Value string) {

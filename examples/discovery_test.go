@@ -26,7 +26,7 @@ func TestGetAvailableDevicesAtSpecificEthernetInterface(t *testing.T) {
 
 func client() {
 	dev := onvif.NewDevice(onvif.DeviceParams{Xaddr: "192.168.3.10", Username: "admin", Password: "zsyy12345"})
-	err := dev.Inspect()
+	_, err := dev.Inspect()
 	if err != nil {
 		panic(err)
 	}

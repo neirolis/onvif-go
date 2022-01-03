@@ -39,7 +39,7 @@ If there is a device on the network at the address *192.168.13.42*, and its ONVI
 
 ```go
 device := onvif.NewDevice(onvif.DeviceParams{Xaddr: "192.168.13.42:1234"})
-err := dev.Inspect()
+_, err := dev.Inspect()
 ```
 
 *The ONVIF port may differ depending on the device , to find out which port to use, you can go to the web interface of the device. **Usually this is 80 port.***
@@ -50,7 +50,7 @@ If any function of the ONVIF services requires authentication, you must use the 
 
 ```go
 device := onvif.NewDevice(onvif.DeviceParams{Xaddr: "192.168.13.42:1234", Username: "username", Password: password})
-err := dev.Inspect()
+_, err := dev.Inspect()
 ```
 
 #### Defining Data Types

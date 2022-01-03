@@ -33,7 +33,7 @@ func main() {
 		Password:   password,
 		HttpClient: new(http.Client),
 	})
-	err := dev.Inspect()
+	_, err := dev.Inspect()
 	if err != nil {
 		panic(err)
 	}

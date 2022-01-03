@@ -164,7 +164,7 @@ func callNecessaryMethod(serviceName, methodName, acceptedData, username, passwo
 
 func getEndpoint(service, xaddr string) (string, error) {
 	dev := onvif.NewDevice(onvif.DeviceParams{Xaddr: xaddr})
-	err := dev.Inspect()
+	_, err := dev.Inspect()
 	if err != nil {
 		return "", err
 	}
