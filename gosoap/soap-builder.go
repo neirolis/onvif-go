@@ -3,6 +3,7 @@ package gosoap
 import (
 	"encoding/xml"
 	"log"
+	"time"
 
 	"github.com/beevik/etree"
 )
@@ -228,8 +229,8 @@ func buildSoapRoot() *etree.Document {
 }
 
 //AddWSSecurity Header for soapMessage
-func (msg *SoapMessage) AddWSSecurity(username, password string) error {
-	auth := NewSecurity(username, password)
+func (msg *SoapMessage) AddWSSecurity(username, password string, deltaTime time.Duration) error {
+	auth := NewSecurity(username, password, deltaTime)
 	soapReq, err := xml.MarshalIndent(auth, "", "  ")
 	if err != nil {
 		return err

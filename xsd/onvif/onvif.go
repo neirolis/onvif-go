@@ -1130,16 +1130,12 @@ type OnvifVersion struct {
 
 type SetDateTimeType xsd.String
 
-type TimeZone struct {
-	TZ xsd.Token `xml:"onvif:TZ"`
-}
-
 type SystemDateTime struct {
 	DateTimeType    SetDateTimeType
 	DaylightSavings xsd.Boolean
-	TimeZone        TimeZone
-	UTCDateTime     xsd.DateTime
-	LocalDateTime   xsd.DateTime
+	TimeZone        TimeZoneUnmarshal
+	UTCDateTime     DateTimeUnmarshal
+	LocalDateTime   DateTimeUnmarshal
 	Extension       SystemDateTimeExtension
 }
 
@@ -1869,4 +1865,29 @@ type Date struct {
 	Year  xsd.Int `xml:"onvif:Year"`
 	Month xsd.Int `xml:"onvif:Month"`
 	Day   xsd.Int `xml:"onvif:Day"`
+}
+
+type TimeZone struct {
+	TZ xsd.Token `xml:"onvif:TZ"`
+}
+
+type DateTimeUnmarshal struct {
+	Time TimeUnmarshal
+	Date DateUnmarshal
+}
+
+type TimeUnmarshal struct {
+	Hour   xsd.Int
+	Minute xsd.Int
+	Second xsd.Int
+}
+
+type DateUnmarshal struct {
+	Year  xsd.Int
+	Month xsd.Int
+	Day   xsd.Int
+}
+
+type TimeZoneUnmarshal struct {
+	TZ xsd.Token
 }

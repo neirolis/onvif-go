@@ -11,6 +11,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/beevik/etree"
 
@@ -82,6 +83,7 @@ type Device struct {
 	params    DeviceParams
 	endpoints map[string]string
 	info      DeviceInfo
+	deltaTime time.Duration
 }
 
 type DeviceParams struct {
@@ -198,8 +200,12 @@ func (dev *Device) InspectWithCtx(ctx context.Context) (*device.GetCapabilitiesR
 }
 
 func (dev *Device) inspect(callMethod func(method interface{}) (*http.Response, error)) (*device.GetCapabilitiesResponse, error) {
-	getCapabilities := device.GetCapabilities{Category: "All"}
+	_, err := dev.updateDeltaTime(callMethod)
+	if err != nil {
+		return nil, err
+	}
 
+	getCapabilities := device.GetCapabilities{Category: "All"}
 	resp, err := callMethod(getCapabilities)
 	if err != nil {
 		return nil, err
@@ -224,6 +230,49 @@ func (dev *Device) inspect(callMethod func(method interface{}) (*http.Response, 
 	}
 
 	return &capabilitiesResponse, nil
+}
+
+func (dev *Device) UpdateDeltaTime() (time.Duration, error) {
+	return dev.updateDeltaTime(dev.CallMethod)
+}
+
+func (dev *Device) UpdateDeltaTimeCtx(ctx context.Context) (time.Duration, error) {
+	return dev.updateDeltaTime(func(method interface{}) (*http.Response, error) {
+		return dev.CallMethodWithCtx(ctx, method)
+	})
+}
+
+func (dev *Device) updateDeltaTime(callMethod func(method interface{}) (*http.Response, error)) (time.Duration, error) {
+	resp, err := callMethod(device.GetSystemDateAndTime{})
+	if err != nil {
+		return 0, err
+	}
+
+	data, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return 0, err
+	}
+
+	systemDateAndTime := device.GetSystemDateAndTimeResponse{}
+	if err := xml.Unmarshal([]byte(gosoap.SoapMessage(data).Body()), &systemDateAndTime); err != nil {
+		return 0, err
+	}
+
+	date := systemDateAndTime.SystemDateAndTime.UTCDateTime
+	deviceTime := time.Date(
+		int(date.Date.Year),
+		time.Month(date.Date.Month),
+		int(date.Date.Day),
+		int(date.Time.Hour),
+		int(date.Time.Minute),
+		int(date.Time.Second),
+		0,
+		time.UTC,
+	)
+	localTime := time.Now().UTC()
+
+	dev.deltaTime = localTime.Sub(deviceTime)
+	return dev.deltaTime, nil
 }
 
 func (dev *Device) addEndpoint(Key, Value string) {
@@ -263,8 +312,8 @@ func (dev Device) buildMethodSOAP(method interface{}) (gosoap.SoapMessage, error
 	}
 
 	//Auth Handling
-	if dev.params.Username != "" && dev.params.Password != "" {
-		if err := soap.AddWSSecurity(dev.params.Username, dev.params.Password); err != nil {
+	if dev.params.Username != "" && dev.params.Password != "" && reflect.TypeOf(method) != reflect.TypeOf(device.GetSystemDateAndTime{}) {
+		if err := soap.AddWSSecurity(dev.params.Username, dev.params.Password, dev.deltaTime); err != nil {
 			return "", err
 		}
 	}
