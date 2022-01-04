@@ -21,16 +21,11 @@ func (r *Response) Error() error {
 	return r.error
 }
 
-func (r *Response) Raw() *http.Response {
-	return r.response
-}
-
 func (r *Response) StatusOK() bool {
 	if r.error != nil || r.response == nil {
 		return false
 	}
-
-	return r.Raw().StatusCode == http.StatusOK
+	return r.response.StatusCode == http.StatusOK
 }
 
 func (r *Response) Body() ([]byte, error) {
