@@ -21,11 +21,11 @@ func (r *Response) Error() error {
 	return r.error
 }
 
-func (r Response) Raw() *http.Response {
+func (r *Response) Raw() *http.Response {
 	return r.response
 }
 
-func (r Response) StatusOK() bool {
+func (r *Response) StatusOK() bool {
 	if r.error != nil || r.response == nil {
 		return false
 	}
@@ -52,7 +52,7 @@ func (r *Response) Body() ([]byte, error) {
 	return r.body, nil
 }
 
-func (r Response) Unmarshal(responses ...interface{}) error {
+func (r *Response) Unmarshal(responses ...interface{}) error {
 	if r.error != nil {
 		return r.error
 	}

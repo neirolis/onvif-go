@@ -57,7 +57,7 @@ func (r *Request) WithEndpoint(endpoint string) *Request {
 	return r
 }
 
-func (r Request) Do() *Response {
+func (r *Request) Do() *Response {
 	resp := &Response{}
 
 	soap, err := r.buildSOAP(r.method)
@@ -85,7 +85,7 @@ func (r Request) Do() *Response {
 	return resp
 }
 
-func (r Request) getEndpoint(request interface{}) (string, error) {
+func (r *Request) getEndpoint(request interface{}) (string, error) {
 	if len(r.endpoint) > 0 {
 		return r.endpoint, nil
 	}
@@ -99,7 +99,7 @@ func (r Request) getEndpoint(request interface{}) (string, error) {
 	return endpoint, nil
 }
 
-func (r Request) buildSOAP(method interface{}) (gosoap.SoapMessage, error) {
+func (r *Request) buildSOAP(method interface{}) (gosoap.SoapMessage, error) {
 	output, err := xml.MarshalIndent(method, "  ", "    ")
 	if err != nil {
 		return "", err
