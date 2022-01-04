@@ -2,6 +2,7 @@ package gosoap
 
 import (
 	"encoding/xml"
+	"errors"
 	"log"
 	"time"
 
@@ -50,20 +51,32 @@ func (msg SoapMessage) StringIndent() string {
 }
 
 //Body return body from Envelope
-func (msg SoapMessage) Body() string {
-
+func (msg SoapMessage) Body() (string, error) {
 	doc := etree.NewDocument()
-
 	if err := doc.ReadFromString(msg.String()); err != nil {
-		log.Println(err.Error())
+		return "", err
 	}
-	bodyTag := doc.Root().SelectElement("Body").ChildElements()[0]
-	doc.SetRoot(bodyTag)
-	doc.IndentTabs()
 
+	root := doc.Root()
+	if root == nil {
+		return "", errors.New("root element not found")
+	}
+
+	body := root.SelectElement("Body")
+	if body == nil {
+		return "", errors.New("body element not found")
+	}
+
+	bodyChilds := body.ChildElements()
+	if len(bodyChilds) == 0 {
+		return "", errors.New("body childs not found")
+	}
+
+	doc.SetRoot(bodyChilds[0])
+	doc.IndentTabs()
 	res, _ := doc.WriteToString()
 
-	return res
+	return res, nil
 }
 
 //AddStringBodyContent for Envelope
@@ -141,7 +154,6 @@ func (msg *SoapMessage) AddStringHeaderContent(data string) error {
 
 	doc = etree.NewDocument()
 	if err := doc.ReadFromString(msg.String()); err != nil {
-		//log.Println(err.Error())
 		return err
 	}
 
@@ -236,8 +248,7 @@ func (msg *SoapMessage) AddWSSecurity(username, password string, deltaTime time.
 		return err
 	}
 
-	msg.AddStringHeaderContent(string(soapReq))
-	return nil
+	return msg.AddStringHeaderContent(string(soapReq))
 }
 
 //AddAction Header handling for soapMessage

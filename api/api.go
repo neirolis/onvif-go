@@ -12,6 +12,7 @@ import (
 
 	"github.com/beevik/etree"
 	"github.com/gin-gonic/gin"
+
 	"github.com/kikimor/onvif"
 	"github.com/kikimor/onvif/gosoap"
 	"github.com/kikimor/onvif/networking"
@@ -144,8 +145,8 @@ func callNecessaryMethod(serviceName, methodName, acceptedData, username, passwo
 
 	soap := gosoap.NewEmptySOAP()
 	soap.AddStringBodyContent(*resp)
-	soap.AddRootNamespaces(onvif.Xlmns)
-	if err := soap.AddWSSecurity(username, password); err != nil {
+	soap.AddRootNamespaces(networking.Xlmns)
+	if err := soap.AddWSSecurity(username, password, 0); err != nil {
 		return "", err
 	}
 
@@ -173,15 +174,15 @@ func getEndpoint(service, xaddr string) (string, error) {
 	var endpoint string
 	switch pkg {
 	case "device":
-		endpoint = dev.GetEndpoint("Device")
+		endpoint, _ = dev.GetEndpoint("Device")
 	case "event":
-		endpoint = dev.GetEndpoint("Event")
+		endpoint, _ = dev.GetEndpoint("Event")
 	case "imaging":
-		endpoint = dev.GetEndpoint("Imaging")
+		endpoint, _ = dev.GetEndpoint("Imaging")
 	case "media":
-		endpoint = dev.GetEndpoint("Media")
+		endpoint, _ = dev.GetEndpoint("Media")
 	case "ptz":
-		endpoint = dev.GetEndpoint("PTZ")
+		endpoint, _ = dev.GetEndpoint("PTZ")
 	}
 	return endpoint, nil
 }

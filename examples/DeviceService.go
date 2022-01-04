@@ -2,13 +2,12 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net/http"
+	"time"
 
 	goonvif "github.com/kikimor/onvif"
 	"github.com/kikimor/onvif/device"
-	"github.com/kikimor/onvif/gosoap"
 	"github.com/kikimor/onvif/xsd/onvif"
 )
 
@@ -17,21 +16,13 @@ const (
 	password = "Supervisor"
 )
 
-func readResponse(resp *http.Response) string {
-	b, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		panic(err)
-	}
-	return string(b)
-}
-
 func main() {
 	//Getting an camera instance
 	dev := goonvif.NewDevice(goonvif.DeviceParams{
 		Xaddr:      "192.168.13.14:80",
 		Username:   login,
 		Password:   password,
-		HttpClient: new(http.Client),
+		HttpClient: &http.Client{Timeout: 5 * time.Second},
 	})
 	_, err := dev.Inspect()
 	if err != nil {
@@ -49,26 +40,21 @@ func main() {
 	}
 
 	//Commands execution
-	systemDateAndTymeResponse, err := dev.CallMethod(systemDateAndTyme)
-	if err != nil {
+	if data, err := dev.CreateRequest(systemDateAndTyme).Do().Body(); err != nil {
 		log.Println(err)
 	} else {
-		fmt.Println(readResponse(systemDateAndTymeResponse))
-	}
-	getCapabilitiesResponse, err := dev.CallMethod(getCapabilities)
-	if err != nil {
-		log.Println(err)
-	} else {
-		fmt.Println(readResponse(getCapabilitiesResponse))
-	}
-	createUserResponse, err := dev.CallMethod(createUser)
-	if err != nil {
-		log.Println(err)
-	} else {
-		/*
-			You could use https://github.com/kikimor/onvif/gosoap for pretty printing response
-		*/
-		fmt.Println(gosoap.SoapMessage(readResponse(createUserResponse)).StringIndent())
+		fmt.Println(string(data))
 	}
 
+	if data, err := dev.CreateRequest(getCapabilities).Do().Body(); err != nil {
+		log.Println(err)
+	} else {
+		fmt.Println(string(data))
+	}
+
+	if data, err := dev.CreateRequest(createUser).Do().Body(); err != nil {
+		log.Println(err)
+	} else {
+		fmt.Println(string(data))
+	}
 }

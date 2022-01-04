@@ -2,13 +2,11 @@ package onvif
 
 import (
 	"context"
-	"encoding/xml"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/url"
-	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -16,29 +14,9 @@ import (
 	"github.com/beevik/etree"
 
 	"github.com/kikimor/onvif/device"
-	"github.com/kikimor/onvif/gosoap"
 	"github.com/kikimor/onvif/networking"
 	wsdiscovery "github.com/kikimor/onvif/ws-discovery"
 )
-
-//Xlmns XML Scheam
-var Xlmns = map[string]string{
-	"onvif":   "http://www.onvif.org/ver10/schema",
-	"tds":     "http://www.onvif.org/ver10/device/wsdl",
-	"trt":     "http://www.onvif.org/ver10/media/wsdl",
-	"tev":     "http://www.onvif.org/ver10/events/wsdl",
-	"tptz":    "http://www.onvif.org/ver20/ptz/wsdl",
-	"timg":    "http://www.onvif.org/ver20/imaging/wsdl",
-	"tan":     "http://www.onvif.org/ver20/analytics/wsdl",
-	"xmime":   "http://www.w3.org/2005/05/xmlmime",
-	"wsnt":    "http://docs.oasis-open.org/wsn/b-2",
-	"xop":     "http://www.w3.org/2004/08/xop/include",
-	"wsa":     "http://www.w3.org/2005/08/addressing",
-	"wstop":   "http://docs.oasis-open.org/wsn/t-1",
-	"wsntw":   "http://docs.oasis-open.org/wsn/bw-2",
-	"wsrf-rw": "http://docs.oasis-open.org/wsrf/rw-2",
-	"wsaw":    "http://www.w3.org/2006/05/addressing/wsdl",
-}
 
 //DeviceType alias for int
 type DeviceType int
@@ -91,6 +69,11 @@ type DeviceParams struct {
 	Username   string
 	Password   string
 	HttpClient *http.Client
+}
+
+//DeltaTime return delta time between local time and device time (time.Now() - deviceTime).
+func (dev *Device) DeltaTime() time.Duration {
+	return dev.deltaTime
 }
 
 //GetServices return available endpoints
@@ -189,43 +172,46 @@ func NewDevice(params DeviceParams) *Device {
 	return &dev
 }
 
+func (dev *Device) CreateRequest(method interface{}) *networking.Request {
+	return networking.NewRequest(dev, method).
+		WithHttpClient(dev.params.HttpClient).
+		WithUsernamePassword(dev.params.Username, dev.params.Password)
+}
+
 func (dev *Device) Inspect() (*device.GetCapabilitiesResponse, error) {
-	return dev.inspect(dev.CallMethod)
+	return dev.inspect(nil)
 }
 
 func (dev *Device) InspectWithCtx(ctx context.Context) (*device.GetCapabilitiesResponse, error) {
-	return dev.inspect(func(method interface{}) (*http.Response, error) {
-		return dev.CallMethodWithCtx(ctx, method)
-	})
+	return dev.inspect(ctx)
 }
 
-func (dev *Device) inspect(callMethod func(method interface{}) (*http.Response, error)) (*device.GetCapabilitiesResponse, error) {
-	_, err := dev.updateDeltaTime(callMethod)
+func (dev *Device) inspect(ctx context.Context) (*device.GetCapabilitiesResponse, error) {
+	_, err := dev.updateDeltaTime(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	getCapabilities := device.GetCapabilities{Category: "All"}
-	resp, err := callMethod(getCapabilities)
-	if err != nil {
-		return nil, err
+	resp := dev.CreateRequest(device.GetCapabilities{Category: "All"}).WithContext(ctx).Do()
+	if resp.Error() != nil {
+		return nil, resp.Error()
 	}
 
-	if resp.StatusCode != http.StatusOK {
+	if !resp.StatusOK() {
 		return nil, errors.New("camera is not available at " + dev.params.Xaddr + " or it does not support ONVIF services")
 	}
 
-	data, err := ioutil.ReadAll(resp.Body)
+	body, err := resp.Body()
 	if err != nil {
 		return nil, err
 	}
 
-	if err := dev.getSupportedServices(data); err != nil {
+	if err = dev.getSupportedServices(body); err != nil {
 		return nil, err
 	}
 
 	capabilitiesResponse := device.GetCapabilitiesResponse{}
-	if err := xml.Unmarshal([]byte(gosoap.SoapMessage(data).Body()), &capabilitiesResponse); err != nil {
+	if err = resp.Unmarshal(&capabilitiesResponse); err != nil {
 		return nil, err
 	}
 
@@ -233,19 +219,22 @@ func (dev *Device) inspect(callMethod func(method interface{}) (*http.Response, 
 }
 
 func (dev *Device) UpdateDeltaTime() (time.Duration, error) {
-	return dev.updateDeltaTime(dev.CallMethod)
+	return dev.updateDeltaTime(nil)
 }
 
 func (dev *Device) UpdateDeltaTimeCtx(ctx context.Context) (time.Duration, error) {
-	return dev.updateDeltaTime(func(method interface{}) (*http.Response, error) {
-		return dev.CallMethodWithCtx(ctx, method)
-	})
+	return dev.updateDeltaTime(ctx)
 }
 
-func (dev *Device) updateDeltaTime(callMethod func(method interface{}) (*http.Response, error)) (time.Duration, error) {
+func (dev *Device) updateDeltaTime(ctx context.Context) (time.Duration, error) {
+	resp := dev.CreateRequest(device.GetSystemDateAndTime{}).WithContext(ctx).Do()
+	if resp.Error() != nil {
+		return 0, resp.Error()
+	}
+
 	systemDateAndTime := device.GetSystemDateAndTimeResponse{}
-	if err := dev.request(device.GetSystemDateAndTime{}, &systemDateAndTime, callMethod); err != nil {
-		return 0, nil
+	if err := resp.Unmarshal(&systemDateAndTime); err != nil {
+		return 0, err
 	}
 
 	date := systemDateAndTime.SystemDateAndTime.UTCDateTime
@@ -279,40 +268,8 @@ func (dev *Device) addEndpoint(Key, Value string) {
 	dev.endpoints[lowCaseKey] = Value
 }
 
-//GetEndpoint returns specific ONVIF service endpoint address
-func (dev *Device) GetEndpoint(name string) string {
-	return dev.endpoints[name]
-}
-
-func (dev Device) buildMethodSOAP(method interface{}) (gosoap.SoapMessage, error) {
-	output, err := xml.MarshalIndent(method, "  ", "    ")
-	if err != nil {
-		return "", err
-	}
-
-	doc := etree.NewDocument()
-	if err := doc.ReadFromString(string(output)); err != nil {
-		return "", err
-	}
-
-	soap := gosoap.NewEmptySOAP()
-	soap.AddRootNamespaces(Xlmns)
-	if err := soap.AddBodyContent(doc.Root()); err != nil {
-		return "", err
-	}
-
-	//Auth Handling
-	if dev.params.Username != "" && dev.params.Password != "" && reflect.TypeOf(method) != reflect.TypeOf(device.GetSystemDateAndTime{}) {
-		if err := soap.AddWSSecurity(dev.params.Username, dev.params.Password, dev.deltaTime); err != nil {
-			return "", err
-		}
-	}
-
-	return soap, nil
-}
-
 //getEndpoint functions get the target service endpoint in a better way
-func (dev Device) getEndpoint(endpoint string) (string, error) {
+func (dev Device) GetEndpoint(endpoint string) (string, error) {
 
 	// common condition, endpointMark in map we use this.
 	if endpointURL, bFound := dev.endpoints[endpoint]; bFound {
@@ -330,75 +287,4 @@ func (dev Device) getEndpoint(endpoint string) (string, error) {
 		}
 	}
 	return endpointURL, errors.New("target endpoint service not found")
-}
-
-//CallMethod functions call an method, defined <method> struct.
-//You should use Authenticate method to call authorized requests.
-func (dev Device) CallMethod(method interface{}) (*http.Response, error) {
-	return dev.callMethod(method, networking.SendSoap)
-}
-
-//CallMethodWithCtx functions call an method, defined <method> struct.
-//You should use Authenticate method to call authorized requests.
-func (dev Device) CallMethodWithCtx(ctx context.Context, method interface{}) (*http.Response, error) {
-	return dev.callMethod(method, func(httpClient *http.Client, endpoint, message string) (*http.Response, error) {
-		return networking.SendSoapWithCtx(ctx, httpClient, endpoint, message)
-	})
-}
-
-//callMethod functions call an method, defined <method> struct.
-//You should use Authenticate method to call authorized requests.
-func (dev Device) callMethod(
-	method interface{},
-	sendSoap func(httpClient *http.Client, endpoint, message string) (*http.Response, error),
-) (*http.Response, error) {
-	soap, err := dev.buildMethodSOAP(method)
-	if err != nil {
-		return nil, err
-	}
-
-	pkgPath := strings.Split(reflect.TypeOf(method).PkgPath(), "/")
-	pkg := strings.ToLower(pkgPath[len(pkgPath)-1])
-	endpoint, err := dev.getEndpoint(pkg)
-	if err != nil {
-		return nil, err
-	}
-
-	return sendSoap(dev.params.HttpClient, endpoint, soap.String())
-}
-
-// Request executes a query with request struct and puts the result in response struct.
-func (dev Device) Request(request interface{}, response interface{}) error {
-	return dev.request(response, response, func(method interface{}) (*http.Response, error) {
-		return dev.CallMethod(request)
-	})
-}
-
-// RequestWithCtx executes a context query with request struct and puts the result in response struct.
-func (dev Device) RequestWithCtx(ctx context.Context, request interface{}, response interface{}) error {
-	return dev.request(response, response, func(method interface{}) (*http.Response, error) {
-		return dev.CallMethodWithCtx(ctx, request)
-	})
-}
-
-func (dev Device) request(
-	request interface{},
-	response interface{},
-	callMethod func(method interface{}) (*http.Response, error),
-) error {
-	resp, err := callMethod(request)
-	if err != nil {
-		return err
-	}
-
-	data, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
-
-	if err = xml.Unmarshal([]byte(gosoap.SoapMessage(data).Body()), response); err != nil {
-		return err
-	}
-
-	return nil
 }

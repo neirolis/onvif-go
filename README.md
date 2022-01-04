@@ -39,7 +39,7 @@ If there is a device on the network at the address *192.168.13.42*, and its ONVI
 
 ```go
 device := onvif.NewDevice(onvif.DeviceParams{Xaddr: "192.168.13.42:1234"})
-_, err := dev.Inspect()
+_, err := device.Inspect()
 ```
 
 *The ONVIF port may differ depending on the device , to find out which port to use, you can go to the web interface of the device. **Usually this is 80 port.***
@@ -49,8 +49,8 @@ _, err := dev.Inspect()
 If any function of the ONVIF services requires authentication, you must use the `Authenticate` method.
 
 ```go
-device := onvif.NewDevice(onvif.DeviceParams{Xaddr: "192.168.13.42:1234", Username: "username", Password: password})
-_, err := dev.Inspect()
+device := onvif.NewDevice(onvif.DeviceParams{Xaddr: "192.168.13.42:1234", Username: "username", Password: "password"})
+_, err := device.Inspect()
 ```
 
 #### Defining Data Types
@@ -91,13 +91,19 @@ The figure below shows that ,in this example, the `CreateUsers` structure field 
 
 #### Carrying out the required method
 
-To perform any function of one of the ONVIF services whose structure has been defined, you must use the `CallMethod` of the device object.
+To perform any function of one of the ONVIF services whose structure has been defined, you must use the `CreateRequest` of the device object.
 
 ```go
-createUsers := device.CreateUsers{User: onvif.User{Username:"admin", Password:"qwerty", UserLevel:"User"}}
-device := onvif.NewDevice(onvif.DeviceParams{Xaddr: "192.168.13.42:1234", Username: "username", Password: password})
-device.Inspect()
-resp, err := dev.CallMethod(createUsers)
+ctx := context.Background()
+device := onvif.NewDevice(onvif.DeviceParams{Xaddr: "192.168.13.42:1234", Username: "username", Password: "password"})
+if _, err := device.InspectWithCtx(ctx); err != nil {
+	panic(err)
+}
+
+profilesResponse := media.GetProfilesResponse{}
+if err := device.CreateRequest(media.GetProfiles{}).WithContext(ctx).Do().Unmarshal(&profilesResponse); err != nil {
+    panic(err)
+}
 ```
 
 ## Great Thanks

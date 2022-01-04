@@ -42,6 +42,12 @@ type EndpointReferenceType struct { //wsa http://www.w3.org/2005/08/addressing/w
 	Metadata            MetadataType            `xml:"wsnt:Metadata"`
 }
 
+type EndpointReferenceTypeResponse struct { //wsa http://www.w3.org/2005/08/addressing/ws-addr.xsd
+	Address             AttributedURIType       `xml:"Address"`
+	ReferenceParameters ReferenceParametersType `xml:"ReferenceParameters"`
+	Metadata            MetadataType            `xml:"Metadata"`
+}
+
 // FilterType struct
 type FilterType struct {
 	TopicExpression TopicExpressionType `xml:"wsnt:TopicExpression"`

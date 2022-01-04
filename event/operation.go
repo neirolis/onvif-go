@@ -67,7 +67,7 @@ type CreatePullPointSubscription struct {
 
 //CreatePullPointSubscriptionResponse action
 type CreatePullPointSubscriptionResponse struct {
-	SubscriptionReference EndpointReferenceType
+	SubscriptionReference EndpointReferenceTypeResponse
 	CurrentTime           CurrentTime
 	TerminationTime       TerminationTime
 }
