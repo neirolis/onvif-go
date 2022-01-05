@@ -60,13 +60,13 @@ func (r *Request) WithEndpoint(endpoint string) *Request {
 func (r *Request) Do() *Response {
 	resp := &Response{}
 
-	soap, err := r.buildSOAP(r.method)
+	endpoint, err := r.getEndpoint(r.method)
 	if err != nil {
 		resp.error = err
 		return resp
 	}
 
-	endpoint, err := r.getEndpoint(r.method)
+	soap, err := r.buildSOAP(r.method, endpoint)
 	if err != nil {
 		resp.error = err
 		return resp
@@ -99,7 +99,7 @@ func (r *Request) getEndpoint(request interface{}) (string, error) {
 	return endpoint, nil
 }
 
-func (r *Request) buildSOAP(method interface{}) (gosoap.SoapMessage, error) {
+func (r *Request) buildSOAP(method interface{}, endpoint string) (gosoap.SoapMessage, error) {
 	output, err := xml.MarshalIndent(method, "  ", "    ")
 	if err != nil {
 		return "", err
@@ -120,6 +120,10 @@ func (r *Request) buildSOAP(method interface{}) (gosoap.SoapMessage, error) {
 		if err := soap.AddWSSecurity(r.username, r.password, r.device.DeltaTime()); err != nil {
 			return "", err
 		}
+	}
+
+	if err := soap.AddTo(endpoint); err != nil {
+		return "", err
 	}
 
 	return soap, nil

@@ -277,3 +277,12 @@ func (msg *SoapMessage) AddAction() {
 	// //
 	// //*msg = SoapMessage(res)
 }
+
+//AddTo Header handling for soapMessage
+func (msg *SoapMessage) AddTo(address string) error {
+	soapReq, err := xml.MarshalIndent(To{Operation: address}, "", "  ")
+	if err != nil {
+		return err
+	}
+	return msg.AddStringHeaderContent(string(soapReq))
+}

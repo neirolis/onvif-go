@@ -58,9 +58,9 @@ type AbsoluteOrRelativeTimeType struct { //wsnt http://docs.oasis-open.org/wsn/b
 
 //EndpointReferenceType in ws-addr
 type EndpointReferenceType struct { //wsa http://www.w3.org/2005/08/addressing/ws-addr.xsd
-	Address             AttributedURIType       `xml:"wsnt:Address"`
-	ReferenceParameters ReferenceParametersType `xml:"wsnt:ReferenceParameters"`
-	Metadata            MetadataType            `xml:"wsnt:Metadata"`
+	Address             AttributedURIType       `xml:"wsa:Address"`
+	ReferenceParameters ReferenceParametersType `xml:"wsa:ReferenceParameters"`
+	Metadata            MetadataType            `xml:"wsa:Metadata"`
 }
 
 type EndpointReferenceTypeResponse struct { //wsa http://www.w3.org/2005/08/addressing/ws-addr.xsd
