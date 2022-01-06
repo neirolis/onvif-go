@@ -71,8 +71,8 @@ type EndpointReferenceTypeResponse struct { //wsa http://www.w3.org/2005/08/addr
 
 // FilterType struct
 type FilterType struct {
-	TopicExpression TopicExpressionType `xml:"wsnt:TopicExpression"`
-	MessageContent  QueryExpressionType `xml:"wsnt:MessageContent"`
+	TopicExpression *TopicExpressionType `xml:"wsnt:TopicExpression"`
+	MessageContent  *QueryExpressionType `xml:"wsnt:MessageContent"`
 }
 
 //EndpointReference alais
