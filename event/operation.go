@@ -23,8 +23,8 @@ type SubscriptionPolicy struct { //tev http://www.onvif.org/ver10/events/wsdl
 type Subscribe struct { //http://docs.oasis-open.org/wsn/b-2.xsd
 	XMLName                struct{}              `xml:"wsnt:Subscribe"`
 	ConsumerReference      EndpointReferenceType `xml:"wsnt:ConsumerReference"`
-	Filter                 FilterType            `xml:"wsnt:Filter"`
-	SubscriptionPolicy     SubscriptionPolicy    `xml:"wsnt:SubscriptionPolicy"`
+	Filter                 *FilterType           `xml:"wsnt:Filter"`
+	SubscriptionPolicy     *SubscriptionPolicy   `xml:"wsnt:SubscriptionPolicy"`
 	InitialTerminationTime TerminationTime       `xml:"wsnt:InitialTerminationTime"`
 }
 
@@ -61,10 +61,10 @@ type UnsubscribeResponse struct { //http://docs.oasis-open.org/wsn/b-2.xsd
 //CreatePullPointSubscription action
 //BUG(r) Bad AbsoluteOrRelativeTimeType type
 type CreatePullPointSubscription struct {
-	XMLName                string             `xml:"tev:CreatePullPointSubscription"`
-	Filter                 FilterType         `xml:"tev:Filter"`
-	InitialTerminationTime TerminationTime    `xml:"wsnt:InitialTerminationTime"`
-	SubscriptionPolicy     SubscriptionPolicy `xml:"wsnt:sSubscriptionPolicy"`
+	XMLName                string              `xml:"tev:CreatePullPointSubscription"`
+	Filter                 *FilterType         `xml:"tev:Filter"`
+	InitialTerminationTime TerminationTime     `xml:"wsnt:InitialTerminationTime"`
+	SubscriptionPolicy     *SubscriptionPolicy `xml:"wsnt:sSubscriptionPolicy"`
 }
 
 //CreatePullPointSubscriptionResponse action
@@ -130,4 +130,9 @@ type SetSynchronizationPoint struct {
 
 //SetSynchronizationPointResponse action
 type SetSynchronizationPointResponse struct {
+}
+
+type Notify struct {
+	XMLName             string `xml:"Notify"`
+	NotificationMessage NotificationMessage
 }
