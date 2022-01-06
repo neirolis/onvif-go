@@ -76,12 +76,14 @@ func (r *Request) Do() *Response {
 		r.httpClient = new(http.Client)
 	}
 
+	var response *http.Response
 	if r.ctx != nil {
-		resp.response, resp.error = SendSoapWithCtx(r.ctx, r.httpClient, endpoint, soap.String())
+		response, resp.error = SendSoapWithCtx(r.ctx, r.httpClient, endpoint, soap.String())
 	} else {
-		resp.response, resp.error = SendSoap(r.httpClient, endpoint, soap.String())
+		response, resp.error = SendSoap(r.httpClient, endpoint, soap.String())
 	}
 
+	resp.SetResponse(response)
 	return resp
 }
 

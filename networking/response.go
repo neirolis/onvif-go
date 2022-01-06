@@ -21,6 +21,15 @@ func (r *Response) Error() error {
 	return r.error
 }
 
+func (r *Response) SetResponse(response *http.Response) {
+	if response == nil {
+		return
+	}
+	r.response = response
+	defer r.response.Body.Close()
+	r.body, r.error = ioutil.ReadAll(r.response.Body)
+}
+
 func (r *Response) StatusOK() bool {
 	if r.error != nil || r.response == nil {
 		return false
@@ -34,14 +43,6 @@ func (r *Response) Body() ([]byte, error) {
 	}
 	if r.response == nil {
 		return nil, invalidResponse
-	}
-
-	if r.body == nil {
-		var err error
-		r.body, err = ioutil.ReadAll(r.response.Body)
-		if err != nil {
-			return nil, err
-		}
 	}
 
 	return r.body, nil
