@@ -10,7 +10,6 @@ import (
 
 	"github.com/beevik/etree"
 
-	dev "github.com/kikimor/onvif/device"
 	"github.com/kikimor/onvif/gosoap"
 )
 
@@ -118,7 +117,7 @@ func (r *Request) buildSOAP(method interface{}, endpoint string) (gosoap.SoapMes
 		return "", err
 	}
 
-	if r.username != "" && r.password != "" && reflect.TypeOf(method) != reflect.TypeOf(dev.GetSystemDateAndTime{}) {
+	if r.username != "" && r.password != "" {
 		if err := soap.AddWSSecurity(r.username, r.password, r.device.DeltaTime()); err != nil {
 			return "", err
 		}
