@@ -254,17 +254,22 @@ func (dev *Device) updateDeltaTime(ctx context.Context) (time.Duration, error) {
 	return dev.deltaTime, nil
 }
 
+// ReplaceHostToXAddr replacing host:port on string to dev.params.Xaddr.
+// NAT needed.
+func (dev *Device) ReplaceHostToXAddr(u string) (string, error) {
+	url, err := url.Parse(u)
+	if err != nil {
+		return u, err
+	}
+	url.Host = dev.params.Xaddr
+	return url.String(), nil
+}
+
 func (dev *Device) addEndpoint(Key, Value string) {
 	//use lowCaseKey
 	//make key having ability to handle Mixed Case for Different vendor devcie (e.g. Events EVENTS, events)
 	lowCaseKey := strings.ToLower(Key)
-
-	// Replace host with host from device params.
-	if u, err := url.Parse(Value); err == nil {
-		u.Host = dev.params.Xaddr
-		Value = u.String()
-	}
-
+	Value, _ = dev.ReplaceHostToXAddr(Value)
 	dev.endpoints[lowCaseKey] = Value
 }
 
