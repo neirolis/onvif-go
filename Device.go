@@ -99,6 +99,10 @@ func (dev *Device) GetDeviceInfo() DeviceInfo {
 	return dev.info
 }
 
+func (dev *Device) GetDeviceXaddr() string {
+	return dev.params.Xaddr
+}
+
 func readResponse(resp *http.Response) string {
 	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
