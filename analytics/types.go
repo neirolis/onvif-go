@@ -1,8 +1,8 @@
 package analytics
 
 import (
-	"github.com/use-go/onvif/xsd"
-	"github.com/use-go/onvif/xsd/onvif"
+	"github.com/neirolis/onvif-go/xsd"
+	"github.com/neirolis/onvif-go/xsd/onvif"
 )
 
 type GetSupportedRules struct {

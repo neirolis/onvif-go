@@ -1,4 +1,4 @@
-module github.com/use-go/onvif
+module github.com/neirolis/onvif-go
 
 go 1.15
 

@@ -6,10 +6,10 @@ import (
 	"log"
 	"net/http"
 
-	goonvif "github.com/use-go/onvif"
-	"github.com/use-go/onvif/device"
-	"github.com/use-go/onvif/gosoap"
-	"github.com/use-go/onvif/xsd/onvif"
+	goonvif "github.com/neirolis/onvif-go"
+	"github.com/neirolis/onvif-go/device"
+	"github.com/neirolis/onvif-go/gosoap"
+	"github.com/neirolis/onvif-go/xsd/onvif"
 )
 
 const (
@@ -65,7 +65,7 @@ func main() {
 		log.Println(err)
 	} else {
 		/*
-			You could use https://github.com/use-go/onvif/gosoap for pretty printing response
+			You could use https://github.com/neirolis/onvif-go/gosoap for pretty printing response
 		*/
 		fmt.Println(gosoap.SoapMessage(readResponse(createUserResponse)).StringIndent())
 	}

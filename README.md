@@ -2,12 +2,14 @@
 
 Simple management of onvif IP-devices cameras. onvif is an implementation of  ONVIF protocol for managing onvif IP devices. The purpose of this library is convenient and easy management of IP cameras and other devices that support ONVIF standard.
 
+Forked from github.com/use-go/onvif
+
 ## Installation
 
 To install the library,  use **go get**:
 
 ```go
-go get github.com/use-go/onvif
+go get github.com/neirolis/onvif-go
 
 ```
 
