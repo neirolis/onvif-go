@@ -180,6 +180,11 @@ func (dev *Device) getSupportedServices(resp *http.Response) {
 	for _, j := range services {
 		dev.addEndpoint(j.Parent().Tag, j.Text())
 	}
+
+	extServices := doc.FindElements("./Envelope/Body/GetCapabilitiesResponse/Capabilities/Extension/*/XAddr")
+	for _, j := range extServices {
+		dev.addEndpoint(j.Parent().Tag, j.Text())
+	}
 }
 
 //NewDevice function construct a ONVIF Device entity
