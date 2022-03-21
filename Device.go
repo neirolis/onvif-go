@@ -99,6 +99,15 @@ func (dev *Device) GetDeviceInfo() DeviceInfo {
 	return dev.info
 }
 
+//Authenticate function authenticate client in the ONVIF device.
+//Function takes <username> and <password> params.
+//You should use this function to allow authorized requests to the ONVIF Device
+//To change auth data call this function again.
+func (dev *Device) Authenticate(username, password string) {
+	dev.params.Username = username
+	dev.params.Password = password
+}
+
 func (dev *Device) GetDeviceXaddr() string {
 	return dev.params.Xaddr
 }
