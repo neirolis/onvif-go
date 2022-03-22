@@ -187,18 +187,15 @@ func GetAvailableDevicesAtSpecificEthernetInterface(interfaceName string) []Devi
 	}
 
 	for _, j := range wsdiscovery.SendProbeHikvision(interfaceName) {
-		fmt.Printf("HIK: %s\n\n", j)
-		dev, err := NewDevice(DeviceParams{})
-		if err == nil {
-			doc := etree.NewDocument()
-			if err := doc.ReadFromString(j); err != nil {
-				fmt.Errorf("%s", err.Error())
-				continue
-			}
-			if dev.LookupHikvisionProbeMatch(doc) && existDevices[dev.params.Xaddr] == false {
-				nvtDevices = append(nvtDevices, *dev)
-				existDevices[dev.params.Xaddr] = true
-			}
+		dev := newEmptyDevice(DeviceParams{})
+		doc := etree.NewDocument()
+		if err := doc.ReadFromString(j); err != nil {
+			fmt.Errorf("%s", err.Error())
+			continue
+		}
+		if dev.LookupHikvisionProbeMatch(doc) && existDevices[dev.params.Xaddr] == false {
+			nvtDevices = append(nvtDevices, *dev)
+			existDevices[dev.params.Xaddr] = true
 		}
 	}
 
@@ -277,8 +274,7 @@ func (dev *Device) LookupHikvisionProbeMatch(doc *etree.Document) bool {
 	return len(dev.params.Xaddr) > 0
 }
 
-//NewDevice function construct a ONVIF Device entity
-func NewDevice(params DeviceParams) (*Device, error) {
+func newEmptyDevice(params DeviceParams) *Device {
 	dev := new(Device)
 	dev.params = params
 	dev.endpoints = make(map[string]string)
@@ -287,7 +283,12 @@ func NewDevice(params DeviceParams) (*Device, error) {
 	if dev.params.HttpClient == nil {
 		dev.params.HttpClient = new(http.Client)
 	}
+	return dev
+}
 
+//NewDevice function construct a ONVIF Device entity
+func NewDevice(params DeviceParams) (*Device, error) {
+	dev := newEmptyDevice(params)
 	getCapabilities := device.GetCapabilities{Category: "All"}
 
 	resp, err := dev.CallMethod(getCapabilities)
