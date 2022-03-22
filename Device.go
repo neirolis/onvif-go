@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"path"
 	"reflect"
 	"strconv"
 	"strings"
@@ -71,6 +72,8 @@ type DeviceInfo struct {
 	FirmwareVersion string
 	SerialNumber    string
 	HardwareId      string
+	Location        string
+	MAC             string
 }
 
 //Device for a new device of onvif and DeviceInfo
@@ -108,16 +111,31 @@ func (dev *Device) Authenticate(username, password string) {
 	dev.params.Password = password
 }
 
-func (dev *Device) GetDeviceXaddr() string {
+func (dev *Device) GetXaddr() string {
 	return dev.params.Xaddr
 }
 
-func readResponse(resp *http.Response) string {
-	b, err := ioutil.ReadAll(resp.Body)
+func (dev *Device) GetName() string {
+	return dev.info.Model
+}
+
+func (dev *Device) GetMAC() string {
+	return dev.info.MAC
+}
+
+func ReadResponse(resp *http.Response) (*etree.Document, error) {
+	doc := etree.NewDocument()
+	data, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	return string(b)
+
+	if err := doc.ReadFromBytes(data); err != nil {
+		//log.Println(err.Error())
+		return nil, err
+	}
+
+	return doc, nil
 }
 
 //GetAvailableDevicesAtSpecificEthernetInterface ...
@@ -159,6 +177,7 @@ func GetAvailableDevicesAtSpecificEthernetInterface(interfaceName string) []Devi
 				fmt.Println(err)
 				continue
 			} else {
+				dev.LookupScopes(doc)
 				nvtDevices = append(nvtDevices, *dev)
 			}
 		}
@@ -167,15 +186,7 @@ func GetAvailableDevicesAtSpecificEthernetInterface(interfaceName string) []Devi
 	return nvtDevices
 }
 
-func (dev *Device) getSupportedServices(resp *http.Response) {
-	doc := etree.NewDocument()
-
-	data, _ := ioutil.ReadAll(resp.Body)
-
-	if err := doc.ReadFromBytes(data); err != nil {
-		//log.Println(err.Error())
-		return
-	}
+func (dev *Device) LookupSupportedServices(doc *etree.Document) {
 	services := doc.FindElements("./Envelope/Body/GetCapabilitiesResponse/Capabilities/*/XAddr")
 	for _, j := range services {
 		dev.addEndpoint(j.Parent().Tag, j.Text())
@@ -185,6 +196,37 @@ func (dev *Device) getSupportedServices(resp *http.Response) {
 	for _, j := range extServices {
 		dev.addEndpoint(j.Parent().Tag, j.Text())
 	}
+}
+
+// lookup scopes by path ./Body/ProbeMatches/ProbeMatch/Scopes
+// ex: <d:Scopes>onvif://www.onvif.org/type/video_encoder onvif://www.onvif.org/hardware/DS-2CD2042WD-I onvif://www.onvif.org/name/HIKVISION%20DS-2CD2042WD-I</d:Scopes>
+func (dev *Device) LookupScopes(doc *etree.Document) {
+	elem := doc.Root().FindElement("./Body/ProbeMatches/ProbeMatch/Scopes")
+	if elem == nil {
+		return
+	}
+
+	for _, scope := range strings.Split(elem.Text(), " ") {
+		u, err := url.Parse(scope)
+		if err != nil {
+			continue
+		}
+
+		upath := strings.ToLower(u.Path)
+
+		switch {
+		case strings.Contains(upath, "hardware"):
+			_, dev.info.HardwareId = path.Split(u.Path)
+		case strings.Contains(upath, "name"):
+			_, dev.info.Model = path.Split(u.Path)
+		case strings.Contains(upath, "location"):
+			_, dev.info.Location = path.Split(u.Path)
+		case strings.Contains(upath, "mac"):
+			_, dev.info.MAC = path.Split(u.Path)
+		}
+	}
+
+	return
 }
 
 //NewDevice function construct a ONVIF Device entity
@@ -206,7 +248,10 @@ func NewDevice(params DeviceParams) (*Device, error) {
 		return nil, errors.New("camera is not available at " + dev.params.Xaddr + " or it does not support ONVIF services")
 	}
 
-	dev.getSupportedServices(resp)
+	if doc, err := ReadResponse(resp); err == nil {
+		dev.LookupSupportedServices(doc)
+	}
+
 	return dev, nil
 }
 
