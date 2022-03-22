@@ -146,6 +146,8 @@ func GetAvailableDevicesAtSpecificEthernetInterface(interfaceName string) []Devi
 	devices := wsdiscovery.SendProbe(interfaceName, nil, []string{"dn:" + NVT.String()}, map[string]string{"dn": "http://www.onvif.org/ver10/network/wsdl"})
 	nvtDevices := make([]Device, 0)
 
+	existDevices := make(map[string]bool)
+
 	for _, j := range devices {
 		doc := etree.NewDocument()
 		if err := doc.ReadFromString(j); err != nil {
@@ -156,7 +158,7 @@ func GetAvailableDevicesAtSpecificEthernetInterface(interfaceName string) []Devi
 		endpoints := doc.Root().FindElements("./Body/ProbeMatches/ProbeMatch/XAddrs")
 		for _, xaddr := range endpoints {
 			xaddr := strings.Split(strings.Split(xaddr.Text(), " ")[0], "/")[2]
-			fmt.Println(xaddr)
+			// fmt.Println(xaddr)
 			c := 0
 
 			for c = 0; c < len(nvtDevices); c++ {
@@ -179,6 +181,22 @@ func GetAvailableDevicesAtSpecificEthernetInterface(interfaceName string) []Devi
 			} else {
 				dev.LookupScopes(doc)
 				nvtDevices = append(nvtDevices, *dev)
+				existDevices[xaddr] = true
+			}
+		}
+	}
+
+	for _, j := range wsdiscovery.SendProbeHikvision(interfaceName) {
+		dev, err := NewDevice(DeviceParams{})
+		if err == nil {
+			doc := etree.NewDocument()
+			if err := doc.ReadFromString(j); err != nil {
+				fmt.Errorf("%s", err.Error())
+				continue
+			}
+			if dev.LookupHikvisionProbeMatch(doc) && existDevices[dev.params.Xaddr] == false {
+				nvtDevices = append(nvtDevices, *dev)
+				existDevices[dev.params.Xaddr] = true
 			}
 		}
 	}
@@ -227,6 +245,35 @@ func (dev *Device) LookupScopes(doc *etree.Document) {
 	}
 
 	return
+}
+
+// lookup scopes by path ./Body/ProbeMatches/ProbeMatch/Scopes
+// ex: <d:Scopes>onvif://www.onvif.org/type/video_encoder onvif://www.onvif.org/hardware/DS-2CD2042WD-I onvif://www.onvif.org/name/HIKVISION%20DS-2CD2042WD-I</d:Scopes>
+func (dev *Device) LookupHikvisionProbeMatch(doc *etree.Document) bool {
+	probeMatch := doc.Root()
+	if probeMatch == nil {
+		return false
+	}
+
+	dev.info.Manufacturer = "HIKVISION"
+
+	for _, child := range probeMatch.ChildElements() {
+		switch {
+		case child.Tag == "DeviceDescription":
+			dev.info.Model = fmt.Sprintf("HIKVISION %s", child.Text())
+		case child.Tag == "DeviceSN":
+			dev.info.SerialNumber = child.Text()
+		case child.Tag == "MAC":
+			dev.info.MAC = strings.ReplaceAll(child.Text(), "-", ":")
+		case child.Tag == "SoftwareVersion":
+			dev.info.FirmwareVersion = child.Text()
+
+		case child.Tag == "IPv4Address":
+			dev.params.Xaddr = child.Text()
+		}
+	}
+
+	return len(dev.params.Xaddr) > 0
 }
 
 //NewDevice function construct a ONVIF Device entity
