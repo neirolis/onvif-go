@@ -187,9 +187,9 @@ func GetAvailableDevicesAtSpecificEthernetInterface(interfaceName string) []Devi
 	}
 
 	for _, j := range wsdiscovery.SendProbeHikvision(interfaceName) {
+		fmt.Printf("HIK: %s\n\n", j)
 		dev, err := NewDevice(DeviceParams{})
 		if err == nil {
-			fmt.Printf("HIK: %s\n\n", j)
 			doc := etree.NewDocument()
 			if err := doc.ReadFromString(j); err != nil {
 				fmt.Errorf("%s", err.Error())
