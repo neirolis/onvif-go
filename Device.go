@@ -179,7 +179,7 @@ func GetAvailableDevicesAtSpecificEthernetInterface(interfaceName string) []Devi
 				fmt.Println(err)
 				continue
 			} else {
-				dev.LookupScopes(doc)
+				dev.lookupScopes(doc)
 				nvtDevices = append(nvtDevices, *dev)
 				existDevices[xaddr] = true
 			}
@@ -202,7 +202,7 @@ func GetAvailableDevicesAtSpecificEthernetInterface(interfaceName string) []Devi
 	return nvtDevices
 }
 
-func (dev *Device) LookupSupportedServices(doc *etree.Document) {
+func (dev *Device) lookupSupportedServices(doc *etree.Document) {
 	services := doc.FindElements("./Envelope/Body/GetCapabilitiesResponse/Capabilities/*/XAddr")
 	for _, j := range services {
 		dev.addEndpoint(j.Parent().Tag, j.Text())
@@ -216,7 +216,7 @@ func (dev *Device) LookupSupportedServices(doc *etree.Document) {
 
 // lookup scopes by path ./Body/ProbeMatches/ProbeMatch/Scopes
 // ex: <d:Scopes>onvif://www.onvif.org/type/video_encoder onvif://www.onvif.org/hardware/DS-2CD2042WD-I onvif://www.onvif.org/name/HIKVISION%20DS-2CD2042WD-I</d:Scopes>
-func (dev *Device) LookupScopes(doc *etree.Document) {
+func (dev *Device) lookupScopes(doc *etree.Document) {
 	elem := doc.Root().FindElement("./Body/ProbeMatches/ProbeMatch/Scopes")
 	if elem == nil {
 		return
@@ -298,7 +298,9 @@ func NewDevice(params DeviceParams) (*Device, error) {
 	}
 
 	if doc, err := ReadResponse(resp); err == nil {
-		dev.LookupSupportedServices(doc)
+		dev.lookupSupportedServices(doc)
+	} else {
+		return nil, err
 	}
 
 	return dev, nil
@@ -369,6 +371,7 @@ func (dev Device) CallMethod(method interface{}) (*http.Response, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return dev.callMethodDo(endpoint, method)
 }
 
@@ -392,5 +395,13 @@ func (dev Device) callMethodDo(endpoint string, method interface{}) (*http.Respo
 		soap.AddWSSecurity(dev.params.Username, dev.params.Password)
 	}
 
-	return networking.SendSoap(dev.params.HttpClient, endpoint, soap.String())
+	res, err := networking.SendSoap(dev.params.HttpClient, endpoint, soap.String())
+
+	if res != nil && err == nil {
+		if res.StatusCode/100 != 2 {
+			err = fmt.Errorf("HTTP %s", res.Status)
+		}
+	}
+
+	return res, err
 }
