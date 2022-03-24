@@ -1,7 +1,7 @@
 package onvif
 
 import (
-	"github.com/use-go/onvif/xsd"
+	"github.com/kikimor/onvif/xsd"
 )
 
 // BUG(r): Enum types implemented as simple string
@@ -1130,16 +1130,12 @@ type OnvifVersion struct {
 
 type SetDateTimeType xsd.String
 
-type TimeZone struct {
-	TZ xsd.Token `xml:"onvif:TZ"`
-}
-
 type SystemDateTime struct {
 	DateTimeType    SetDateTimeType
 	DaylightSavings xsd.Boolean
-	TimeZone        TimeZone
-	UTCDateTime     xsd.DateTime
-	LocalDateTime   xsd.DateTime
+	TimeZone        TimeZoneResponse
+	UTCDateTime     DateTimeResponse
+	LocalDateTime   DateTimeResponse
 	Extension       SystemDateTimeExtension
 }
 
@@ -1869,4 +1865,29 @@ type Date struct {
 	Year  xsd.Int `xml:"onvif:Year"`
 	Month xsd.Int `xml:"onvif:Month"`
 	Day   xsd.Int `xml:"onvif:Day"`
+}
+
+type TimeZone struct {
+	TZ xsd.Token `xml:"onvif:TZ"`
+}
+
+type DateTimeResponse struct {
+	Time TimeResponse
+	Date DateResponse
+}
+
+type TimeResponse struct {
+	Hour   xsd.Int
+	Minute xsd.Int
+	Second xsd.Int
+}
+
+type DateResponse struct {
+	Year  xsd.Int
+	Month xsd.Int
+	Day   xsd.Int
+}
+
+type TimeZoneResponse struct {
+	TZ xsd.Token
 }

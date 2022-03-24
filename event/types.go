@@ -1,7 +1,7 @@
 package event
 
 import (
-	"github.com/use-go/onvif/xsd"
+	"github.com/kikimor/onvif/xsd"
 )
 
 //Address Alias
@@ -20,8 +20,29 @@ type Documentation xsd.AnyType //wstop http://docs.oasis-open.org/wsn/t-1.xsd
 //TopicExpressionDialect alias
 type TopicExpressionDialect xsd.AnyURI
 
-//Message alias
-type Message xsd.AnyType
+type Messages struct {
+	Messages []Message `xml:"Message"`
+}
+
+type Message struct {
+	UtcTime           xsd.DateTime `xml:"UtcTime,attr"`
+	PropertyOperation xsd.String   `xml:"PropertyOperation,attr"`
+	Source            MessageSource
+	Data              MessageData
+}
+
+type MessageSource struct {
+	SimpleItem []SimpleItem
+}
+
+type MessageData struct {
+	SimpleItem []SimpleItem
+}
+
+type SimpleItem struct {
+	Name  xsd.String `xml:"Name,attr"`
+	Value xsd.String `xml:"Value,attr"`
+}
 
 //ActionType for AttributedURIType
 type ActionType AttributedURIType
@@ -37,15 +58,21 @@ type AbsoluteOrRelativeTimeType struct { //wsnt http://docs.oasis-open.org/wsn/b
 
 //EndpointReferenceType in ws-addr
 type EndpointReferenceType struct { //wsa http://www.w3.org/2005/08/addressing/ws-addr.xsd
-	Address             AttributedURIType       `xml:"wsnt:Address"`
-	ReferenceParameters ReferenceParametersType `xml:"wsnt:ReferenceParameters"`
-	Metadata            MetadataType            `xml:"wsnt:Metadata"`
+	Address             AttributedURIType       `xml:"wsa:Address"`
+	ReferenceParameters ReferenceParametersType `xml:"wsa:ReferenceParameters"`
+	Metadata            MetadataType            `xml:"wsa:Metadata"`
+}
+
+type EndpointReferenceTypeResponse struct { //wsa http://www.w3.org/2005/08/addressing/ws-addr.xsd
+	Address             AttributedURIType       `xml:"Address"`
+	ReferenceParameters ReferenceParametersType `xml:"ReferenceParameters"`
+	Metadata            MetadataType            `xml:"Metadata"`
 }
 
 // FilterType struct
 type FilterType struct {
-	TopicExpression TopicExpressionType `xml:"wsnt:TopicExpression"`
-	MessageContent  QueryExpressionType `xml:"wsnt:MessageContent"`
+	TopicExpression *TopicExpressionType `xml:"wsnt:TopicExpression"`
+	MessageContent  *QueryExpressionType `xml:"wsnt:MessageContent"`
 }
 
 //EndpointReference alais
@@ -91,7 +118,7 @@ type NotificationMessageHolderType struct {
 	SubscriptionReference SubscriptionReference //wsnt http://docs.oasis-open.org/wsn/b-2.xsd
 	Topic                 Topic
 	ProducerReference     ProducerReference
-	Message               Message
+	Message               Messages
 }
 
 //NotificationMessage Alias

@@ -1,7 +1,7 @@
 package event
 
 import (
-	"github.com/use-go/onvif/xsd"
+	"github.com/kikimor/onvif/xsd"
 )
 
 //GetServiceCapabilities action
@@ -23,32 +23,34 @@ type SubscriptionPolicy struct { //tev http://www.onvif.org/ver10/events/wsdl
 type Subscribe struct { //http://docs.oasis-open.org/wsn/b-2.xsd
 	XMLName                struct{}              `xml:"wsnt:Subscribe"`
 	ConsumerReference      EndpointReferenceType `xml:"wsnt:ConsumerReference"`
-	Filter                 FilterType            `xml:"wsnt:Filter"`
-	SubscriptionPolicy     SubscriptionPolicy    `xml:"wsnt:SubscriptionPolicy"`
+	Filter                 *FilterType           `xml:"wsnt:Filter"`
+	SubscriptionPolicy     *SubscriptionPolicy   `xml:"wsnt:SubscriptionPolicy"`
 	InitialTerminationTime TerminationTime       `xml:"wsnt:InitialTerminationTime"`
 }
 
 //SubscribeResponse message for subscribe event topic
 type SubscribeResponse struct { //http://docs.oasis-open.org/wsn/b-2.xsd
-	ConsumerReference EndpointReferenceType `xml:"wsnt:ConsumerReference"`
-	CurrentTime       CurrentTime           `xml:"wsnt:CurrentTime"`
-	TerminationTime   TerminationTime       `xml:"wsnt:TerminationTime"`
+	SubscriptionReference EndpointReferenceTypeResponse `xml:"SubscriptionReference"`
+	CurrentTime           CurrentTime                   `xml:"CurrentTime"`
+	TerminationTime       TerminationTime               `xml:"TerminationTime"`
 }
 
 //Renew action for refresh event topic subscription
 type Renew struct { //http://docs.oasis-open.org/wsn/b-2.xsd
-	TerminationTime AbsoluteOrRelativeTimeType `xml:"wsnt:TerminationTime"`
+	XMLName         struct{}        `xml:"wsnt:Renew"`
+	TerminationTime TerminationTime `xml:"wsnt:TerminationTime"`
 }
 
 //RenewResponse for Renew action
 type RenewResponse struct { //http://docs.oasis-open.org/wsn/b-2.xsd
-	TerminationTime TerminationTime `xml:"wsnt:TerminationTime"`
-	CurrentTime     CurrentTime     `xml:"wsnt:CurrentTime"`
+	TerminationTime TerminationTime `xml:"TerminationTime"`
+	CurrentTime     CurrentTime     `xml:"CurrentTime"`
 }
 
 //Unsubscribe action for Unsubscribe event topic
 type Unsubscribe struct { //http://docs.oasis-open.org/wsn/b-2.xsd
-	Any string
+	XMLName struct{} `xml:"wsnt:Unsubscribe"`
+	Any     string
 }
 
 //UnsubscribeResponse message for Unsubscribe event topic
@@ -59,15 +61,15 @@ type UnsubscribeResponse struct { //http://docs.oasis-open.org/wsn/b-2.xsd
 //CreatePullPointSubscription action
 //BUG(r) Bad AbsoluteOrRelativeTimeType type
 type CreatePullPointSubscription struct {
-	XMLName                string                     `xml:"tev:CreatePullPointSubscription"`
-	Filter                 FilterType                 `xml:"tev:Filter"`
-	InitialTerminationTime AbsoluteOrRelativeTimeType `xml:"wsnt:InitialTerminationTime"`
-	SubscriptionPolicy     SubscriptionPolicy         `xml:"wsnt:sSubscriptionPolicy"`
+	XMLName                string              `xml:"tev:CreatePullPointSubscription"`
+	Filter                 *FilterType         `xml:"tev:Filter"`
+	InitialTerminationTime TerminationTime     `xml:"tev:InitialTerminationTime"`
+	SubscriptionPolicy     *SubscriptionPolicy `xml:"tev:sSubscriptionPolicy"`
 }
 
 //CreatePullPointSubscriptionResponse action
 type CreatePullPointSubscriptionResponse struct {
-	SubscriptionReference EndpointReferenceType
+	SubscriptionReference EndpointReferenceTypeResponse
 	CurrentTime           CurrentTime
 	TerminationTime       TerminationTime
 }
@@ -128,4 +130,9 @@ type SetSynchronizationPoint struct {
 
 //SetSynchronizationPointResponse action
 type SetSynchronizationPointResponse struct {
+}
+
+type Notify struct {
+	XMLName             string `xml:"Notify"`
+	NotificationMessage NotificationMessage
 }

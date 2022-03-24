@@ -1,41 +1,22 @@
 package onvif
 
 import (
-	"encoding/xml"
+	"context"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/url"
-	"reflect"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/beevik/etree"
-	"github.com/use-go/onvif/device"
-	"github.com/use-go/onvif/gosoap"
-	"github.com/use-go/onvif/networking"
-	wsdiscovery "github.com/use-go/onvif/ws-discovery"
-)
 
-//Xlmns XML Scheam
-var Xlmns = map[string]string{
-	"onvif":   "http://www.onvif.org/ver10/schema",
-	"tds":     "http://www.onvif.org/ver10/device/wsdl",
-	"trt":     "http://www.onvif.org/ver10/media/wsdl",
-	"tev":     "http://www.onvif.org/ver10/events/wsdl",
-	"tptz":    "http://www.onvif.org/ver20/ptz/wsdl",
-	"timg":    "http://www.onvif.org/ver20/imaging/wsdl",
-	"tan":     "http://www.onvif.org/ver20/analytics/wsdl",
-	"xmime":   "http://www.w3.org/2005/05/xmlmime",
-	"wsnt":    "http://docs.oasis-open.org/wsn/b-2",
-	"xop":     "http://www.w3.org/2004/08/xop/include",
-	"wsa":     "http://www.w3.org/2005/08/addressing",
-	"wstop":   "http://docs.oasis-open.org/wsn/t-1",
-	"wsntw":   "http://docs.oasis-open.org/wsn/bw-2",
-	"wsrf-rw": "http://docs.oasis-open.org/wsrf/rw-2",
-	"wsaw":    "http://www.w3.org/2006/05/addressing/wsdl",
-}
+	"github.com/kikimor/onvif/device"
+	"github.com/kikimor/onvif/networking"
+	wsdiscovery "github.com/kikimor/onvif/ws-discovery"
+)
 
 //DeviceType alias for int
 type DeviceType int
@@ -80,6 +61,7 @@ type Device struct {
 	params    DeviceParams
 	endpoints map[string]string
 	info      DeviceInfo
+	deltaTime time.Duration
 }
 
 type DeviceParams struct {
@@ -87,6 +69,11 @@ type DeviceParams struct {
 	Username   string
 	Password   string
 	HttpClient *http.Client
+}
+
+//DeltaTime return delta time between local time and device time (time.Now() - deviceTime).
+func (dev *Device) DeltaTime() time.Duration {
+	return dev.deltaTime
 }
 
 //GetServices return available endpoints
@@ -139,7 +126,8 @@ func GetAvailableDevicesAtSpecificEthernetInterface(interfaceName string) []Devi
 				continue
 			}
 
-			dev, err := NewDevice(DeviceParams{Xaddr: strings.Split(xaddr, " ")[0]})
+			dev := NewDevice(DeviceParams{Xaddr: strings.Split(xaddr, " ")[0]})
+			_, err := dev.Inspect()
 
 			if err != nil {
 				fmt.Println("Error", xaddr)
@@ -154,14 +142,11 @@ func GetAvailableDevicesAtSpecificEthernetInterface(interfaceName string) []Devi
 	return nvtDevices
 }
 
-func (dev *Device) getSupportedServices(resp *http.Response) {
+func (dev *Device) getSupportedServices(data []byte) error {
 	doc := etree.NewDocument()
 
-	data, _ := ioutil.ReadAll(resp.Body)
-
 	if err := doc.ReadFromBytes(data); err != nil {
-		//log.Println(err.Error())
-		return
+		return err
 	}
 	services := doc.FindElements("./Envelope/Body/GetCapabilitiesResponse/Capabilities/*/XAddr")
 	for _, j := range services {
@@ -171,67 +156,129 @@ func (dev *Device) getSupportedServices(resp *http.Response) {
 	for _, j := range extension_services {
 		dev.addEndpoint(j.Parent().Tag, j.Text())
 	}
+
+	return nil
 }
 
 //NewDevice function construct a ONVIF Device entity
-func NewDevice(params DeviceParams) (*Device, error) {
-	dev := new(Device)
-	dev.params = params
-	dev.endpoints = make(map[string]string)
+func NewDevice(params DeviceParams) *Device {
+	dev := Device{
+		params:    params,
+		endpoints: make(map[string]string),
+	}
+
 	dev.addEndpoint("Device", "http://"+dev.params.Xaddr+"/onvif/device_service")
 
 	if dev.params.HttpClient == nil {
 		dev.params.HttpClient = new(http.Client)
 	}
 
-	getCapabilities := device.GetCapabilities{Category: "All"}
+	return &dev
+}
 
-	resp, err := dev.CallMethod(getCapabilities)
+func (dev *Device) CreateRequest(method interface{}) *networking.Request {
+	return networking.NewRequest(dev, method).
+		WithHttpClient(dev.params.HttpClient).
+		WithUsernamePassword(dev.params.Username, dev.params.Password)
+}
 
-	if err != nil || resp.StatusCode != http.StatusOK {
+func (dev *Device) Inspect() (*device.GetCapabilitiesResponse, error) {
+	return dev.inspect(nil)
+}
+
+func (dev *Device) InspectWithCtx(ctx context.Context) (*device.GetCapabilitiesResponse, error) {
+	return dev.inspect(ctx)
+}
+
+func (dev *Device) inspect(ctx context.Context) (*device.GetCapabilitiesResponse, error) {
+	_, err := dev.updateDeltaTime(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	resp := dev.CreateRequest(device.GetCapabilities{Category: "All"}).WithContext(ctx).Do()
+	if resp.Error() != nil {
+		return nil, resp.Error()
+	}
+
+	if !resp.StatusOK() {
 		return nil, errors.New("camera is not available at " + dev.params.Xaddr + " or it does not support ONVIF services")
 	}
 
-	dev.getSupportedServices(resp)
-	return dev, nil
+	body, err := resp.Body()
+	if err != nil {
+		return nil, err
+	}
+
+	if err = dev.getSupportedServices(body); err != nil {
+		return nil, err
+	}
+
+	capabilitiesResponse := device.GetCapabilitiesResponse{}
+	if err = resp.Unmarshal(&capabilitiesResponse); err != nil {
+		return nil, err
+	}
+
+	return &capabilitiesResponse, nil
+}
+
+func (dev *Device) UpdateDeltaTime() (time.Duration, error) {
+	return dev.updateDeltaTime(nil)
+}
+
+func (dev *Device) UpdateDeltaTimeCtx(ctx context.Context) (time.Duration, error) {
+	return dev.updateDeltaTime(ctx)
+}
+
+func (dev *Device) updateDeltaTime(ctx context.Context) (time.Duration, error) {
+	resp := dev.CreateRequest(device.GetSystemDateAndTime{}).WithContext(ctx).Do()
+	if resp.Error() != nil {
+		return 0, resp.Error()
+	}
+
+	systemDateAndTime := device.GetSystemDateAndTimeResponse{}
+	if err := resp.Unmarshal(&systemDateAndTime); err != nil {
+		return 0, err
+	}
+
+	date := systemDateAndTime.SystemDateAndTime.UTCDateTime
+	deviceTime := time.Date(
+		int(date.Date.Year),
+		time.Month(date.Date.Month),
+		int(date.Date.Day),
+		int(date.Time.Hour),
+		int(date.Time.Minute),
+		int(date.Time.Second),
+		0,
+		time.UTC,
+	)
+	localTime := time.Now().UTC()
+
+	dev.deltaTime = localTime.Sub(deviceTime)
+	return dev.deltaTime, nil
+}
+
+// ReplaceHostToXAddr replacing host:port on string to dev.params.Xaddr.
+// NAT needed.
+func (dev *Device) ReplaceHostToXAddr(u string) (string, error) {
+	url, err := url.Parse(u)
+	if err != nil {
+		return u, err
+	}
+	url.Host = dev.params.Xaddr
+	return url.String(), nil
 }
 
 func (dev *Device) addEndpoint(Key, Value string) {
 	//use lowCaseKey
 	//make key having ability to handle Mixed Case for Different vendor devcie (e.g. Events EVENTS, events)
 	lowCaseKey := strings.ToLower(Key)
-
-	// Replace host with host from device params.
-	if u, err := url.Parse(Value); err == nil {
-		u.Host = dev.params.Xaddr
-		Value = u.String()
-	}
-
+	Value, _ = dev.ReplaceHostToXAddr(Value)
 	dev.endpoints[lowCaseKey] = Value
 }
 
-//GetEndpoint returns specific ONVIF service endpoint address
-func (dev *Device) GetEndpoint(name string) string {
-	return dev.endpoints[name]
-}
-
-func (dev Device) buildMethodSOAP(msg string) (gosoap.SoapMessage, error) {
-	doc := etree.NewDocument()
-	if err := doc.ReadFromString(msg); err != nil {
-		//log.Println("Got error")
-
-		return "", err
-	}
-	element := doc.Root()
-
-	soap := gosoap.NewEmptySOAP()
-	soap.AddBodyContent(element)
-
-	return soap, nil
-}
-
 //getEndpoint functions get the target service endpoint in a better way
-func (dev Device) getEndpoint(endpoint string) (string, error) {
+func (dev Device) GetEndpoint(endpoint string) (string, error) {
 
 	// common condition, endpointMark in map we use this.
 	if endpointURL, bFound := dev.endpoints[endpoint]; bFound {
@@ -249,40 +296,4 @@ func (dev Device) getEndpoint(endpoint string) (string, error) {
 		}
 	}
 	return endpointURL, errors.New("target endpoint service not found")
-}
-
-//CallMethod functions call an method, defined <method> struct.
-//You should use Authenticate method to call authorized requests.
-func (dev Device) CallMethod(method interface{}) (*http.Response, error) {
-	pkgPath := strings.Split(reflect.TypeOf(method).PkgPath(), "/")
-	pkg := strings.ToLower(pkgPath[len(pkgPath)-1])
-
-	endpoint, err := dev.getEndpoint(pkg)
-	if err != nil {
-		return nil, err
-	}
-	return dev.callMethodDo(endpoint, method)
-}
-
-//CallMethod functions call an method, defined <method> struct with authentication data
-func (dev Device) callMethodDo(endpoint string, method interface{}) (*http.Response, error) {
-	output, err := xml.MarshalIndent(method, "  ", "    ")
-	if err != nil {
-		return nil, err
-	}
-
-	soap, err := dev.buildMethodSOAP(string(output))
-	if err != nil {
-		return nil, err
-	}
-
-	soap.AddRootNamespaces(Xlmns)
-	soap.AddAction()
-
-	//Auth Handling
-	if dev.params.Username != "" && dev.params.Password != "" {
-		soap.AddWSSecurity(dev.params.Username, dev.params.Password)
-	}
-
-	return networking.SendSoap(dev.params.HttpClient, endpoint, soap.String())
 }

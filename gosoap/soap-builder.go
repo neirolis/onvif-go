@@ -2,7 +2,9 @@ package gosoap
 
 import (
 	"encoding/xml"
+	"errors"
 	"log"
+	"time"
 
 	"github.com/beevik/etree"
 )
@@ -49,20 +51,32 @@ func (msg SoapMessage) StringIndent() string {
 }
 
 //Body return body from Envelope
-func (msg SoapMessage) Body() string {
-
+func (msg SoapMessage) Body() (string, error) {
 	doc := etree.NewDocument()
-
 	if err := doc.ReadFromString(msg.String()); err != nil {
-		log.Println(err.Error())
+		return "", err
 	}
-	bodyTag := doc.Root().SelectElement("Body").ChildElements()[0]
-	doc.SetRoot(bodyTag)
-	doc.IndentTabs()
 
+	root := doc.Root()
+	if root == nil {
+		return "", errors.New("root element not found")
+	}
+
+	body := root.SelectElement("Body")
+	if body == nil {
+		return "", errors.New("body element not found")
+	}
+
+	bodyChilds := body.ChildElements()
+	if len(bodyChilds) == 0 {
+		return "", errors.New("body childs not found")
+	}
+
+	doc.SetRoot(bodyChilds[0])
+	doc.IndentTabs()
 	res, _ := doc.WriteToString()
 
-	return res
+	return res, nil
 }
 
 //AddStringBodyContent for Envelope
@@ -90,10 +104,10 @@ func (msg *SoapMessage) AddStringBodyContent(data string) {
 }
 
 //AddBodyContent for Envelope
-func (msg *SoapMessage) AddBodyContent(element *etree.Element) {
+func (msg *SoapMessage) AddBodyContent(element *etree.Element) error {
 	doc := etree.NewDocument()
 	if err := doc.ReadFromString(msg.String()); err != nil {
-		log.Println(err.Error())
+		return err
 	}
 	//doc.FindElement("./Envelope/Body").AddChild(element)
 	bodyTag := doc.Root().SelectElement("Body")
@@ -103,6 +117,7 @@ func (msg *SoapMessage) AddBodyContent(element *etree.Element) {
 	res, _ := doc.WriteToString()
 
 	*msg = SoapMessage(res)
+	return nil
 }
 
 //AddBodyContents for Envelope body
@@ -139,7 +154,6 @@ func (msg *SoapMessage) AddStringHeaderContent(data string) error {
 
 	doc = etree.NewDocument()
 	if err := doc.ReadFromString(msg.String()); err != nil {
-		//log.Println(err.Error())
 		return err
 	}
 
@@ -209,22 +223,6 @@ func (msg *SoapMessage) AddRootNamespaces(namespaces map[string]string) {
 	for key, value := range namespaces {
 		msg.AddRootNamespace(key, value)
 	}
-
-	/*
-		doc := etree.NewDocument()
-		if err := doc.ReadFromString(msg.String()); err != nil {
-			//log.Println(err.Error())
-			return err
-		}
-
-		for key, value := range namespaces {
-			doc.Root().CreateAttr("xmlns:" + key, value)
-		}
-
-		doc.IndentTabs()
-		res, _ := doc.WriteToString()
-
-		*msg = SoapMessage(res)*/
 }
 
 func buildSoapRoot() *etree.Document {
@@ -243,37 +241,14 @@ func buildSoapRoot() *etree.Document {
 }
 
 //AddWSSecurity Header for soapMessage
-func (msg *SoapMessage) AddWSSecurity(username, password string) {
-	//doc := etree.NewDocument()
-	//if err := doc.ReadFromString(msg.String()); err != nil {
-	//	log.Println(err.Error())
-	//}
-	/*
-		Getting an WS-Security struct representation
-	*/
-	auth := NewSecurity(username, password)
-
-	/*
-		Adding WS-Security namespaces to root element of SOAP message
-	*/
-	//msg.AddRootNamespace("wsse", "http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext1.0.xsd")
-	//msg.AddRootNamespace("wsu", "http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility1.0.xsd")
-
+func (msg *SoapMessage) AddWSSecurity(username, password string, deltaTime time.Duration) error {
+	auth := NewSecurity(username, password, deltaTime)
 	soapReq, err := xml.MarshalIndent(auth, "", "  ")
 	if err != nil {
-		//log.Printf("error: %v\n", err.Error())
-		panic(err)
+		return err
 	}
 
-	/*
-		Adding WS-Security struct to SOAP header
-	*/
-	msg.AddStringHeaderContent(string(soapReq))
-
-	//doc.IndentTabs()
-	//res, _ := doc.WriteToString()
-	//
-	//*msg = SoapMessage(res)
+	return msg.AddStringHeaderContent(string(soapReq))
 }
 
 //AddAction Header handling for soapMessage
@@ -301,4 +276,13 @@ func (msg *SoapMessage) AddAction() {
 	// //res, _ := doc.WriteToString()
 	// //
 	// //*msg = SoapMessage(res)
+}
+
+//AddTo Header handling for soapMessage
+func (msg *SoapMessage) AddTo(address string) error {
+	soapReq, err := xml.MarshalIndent(To{Operation: address}, "", "  ")
+	if err != nil {
+		return err
+	}
+	return msg.AddStringHeaderContent(string(soapReq))
 }

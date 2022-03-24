@@ -12,10 +12,11 @@ import (
 
 	"github.com/beevik/etree"
 	"github.com/gin-gonic/gin"
-	"github.com/use-go/onvif"
-	"github.com/use-go/onvif/gosoap"
-	"github.com/use-go/onvif/networking"
-	wsdiscovery "github.com/use-go/onvif/ws-discovery"
+
+	"github.com/kikimor/onvif"
+	"github.com/kikimor/onvif/gosoap"
+	"github.com/kikimor/onvif/networking"
+	wsdiscovery "github.com/kikimor/onvif/ws-discovery"
 )
 
 func RunApi() {
@@ -144,8 +145,10 @@ func callNecessaryMethod(serviceName, methodName, acceptedData, username, passwo
 
 	soap := gosoap.NewEmptySOAP()
 	soap.AddStringBodyContent(*resp)
-	soap.AddRootNamespaces(onvif.Xlmns)
-	soap.AddWSSecurity(username, password)
+	soap.AddRootNamespaces(networking.Xlmns)
+	if err := soap.AddWSSecurity(username, password, 0); err != nil {
+		return "", err
+	}
 
 	servResp, err := networking.SendSoap(new(http.Client), endpoint, soap.String())
 	if err != nil {
@@ -161,7 +164,8 @@ func callNecessaryMethod(serviceName, methodName, acceptedData, username, passwo
 }
 
 func getEndpoint(service, xaddr string) (string, error) {
-	dev, err := onvif.NewDevice(onvif.DeviceParams{Xaddr: xaddr})
+	dev := onvif.NewDevice(onvif.DeviceParams{Xaddr: xaddr})
+	_, err := dev.Inspect()
 	if err != nil {
 		return "", err
 	}
@@ -170,15 +174,15 @@ func getEndpoint(service, xaddr string) (string, error) {
 	var endpoint string
 	switch pkg {
 	case "device":
-		endpoint = dev.GetEndpoint("Device")
+		endpoint, _ = dev.GetEndpoint("Device")
 	case "event":
-		endpoint = dev.GetEndpoint("Event")
+		endpoint, _ = dev.GetEndpoint("Event")
 	case "imaging":
-		endpoint = dev.GetEndpoint("Imaging")
+		endpoint, _ = dev.GetEndpoint("Imaging")
 	case "media":
-		endpoint = dev.GetEndpoint("Media")
+		endpoint, _ = dev.GetEndpoint("Media")
 	case "ptz":
-		endpoint = dev.GetEndpoint("PTZ")
+		endpoint, _ = dev.GetEndpoint("PTZ")
 	}
 	return endpoint, nil
 }
