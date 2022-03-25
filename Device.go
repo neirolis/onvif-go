@@ -57,6 +57,13 @@ type DeviceInfo struct {
 	MAC             string
 }
 
+func (info *DeviceInfo) Name() string {
+	if len(info.Manufacturer) > 0 {
+		return fmt.Sprintf("%s %s", info.Manufacturer, info.Model)
+	}
+	return info.Model
+}
+
 //Device for a new device of onvif and DeviceInfo
 //struct represents an abstract ONVIF device.
 //It contains methods, which helps to communicate with ONVIF device
