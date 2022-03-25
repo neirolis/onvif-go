@@ -44,21 +44,30 @@ func SendProbe(interfaceName string, scopes, types []string, namespaces map[stri
 	//</Body>
 	//</Envelope>`
 
-	return sendUDPMulticast(probeSOAP.String(), interfaceName)
-
+	return sendUDPMulticast(probeSOAP.String(), interfaceName, 3702, 1024)
 }
 
-func sendUDPMulticast(msg string, interfaceName string) []string {
-	c, err := net.ListenPacket("udp4", "0.0.0.0:1024")
+//SendProbeHikvision lookup hikvision devices
+func SendProbeHikvision(interfaceName string) []string {
+	// Creating UUID Version 4
+	uuidV4 := uuid.Must(uuid.NewV4())
+	// fmt.Printf("UUIDv4: %s\n", uuidV4)
+
+	probeSOAP := fmt.Sprintf(`<?xml version="1.0" encoding="utf-8"?><Probe><Uuid>%s</Uuid><Types>inquiry</Types></Probe>`, uuidV4.String())
+	return sendUDPMulticast(probeSOAP, interfaceName, 37020, 37020)
+}
+
+func sendUDPMulticast(msg string, interfaceName string, dstPort int, receivePort int) []string {
+	c, err := net.ListenPacket("udp4", fmt.Sprintf("0.0.0.0:%d", receivePort))
 	if err != nil {
-		fmt.Println(err)
+		fmt.Printf("%+v (%d)\n", err, receivePort)
 		return nil
 	}
 	defer c.Close()
 
 	iface, err := net.InterfaceByName(interfaceName)
 	if err != nil {
-		fmt.Println(err)
+		fmt.Printf("%+v (%s)\n", err, interfaceName)
 	}
 
 	p := ipv4.NewPacketConn(c)
@@ -67,7 +76,7 @@ func sendUDPMulticast(msg string, interfaceName string) []string {
 		fmt.Println(err)
 	}
 
-	dst := &net.UDPAddr{IP: group, Port: 3702}
+	dst := &net.UDPAddr{IP: group, Port: dstPort}
 	data := []byte(msg)
 	for _, ifi := range []*net.Interface{iface} {
 		if err := p.SetMulticastInterface(ifi); err != nil {
