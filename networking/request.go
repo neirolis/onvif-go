@@ -10,7 +10,7 @@ import (
 
 	"github.com/beevik/etree"
 
-	"github.com/kikimor/onvif/gosoap"
+	"github.com/neirolis/onvif-go/gosoap"
 )
 
 type device interface {

@@ -1,7 +1,7 @@
 package event
 
 import (
-	"github.com/kikimor/onvif/xsd"
+	"github.com/neirolis/onvif-go/xsd"
 )
 
 //GetServiceCapabilities action

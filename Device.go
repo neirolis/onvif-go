@@ -13,9 +13,9 @@ import (
 
 	"github.com/beevik/etree"
 
-	"github.com/kikimor/onvif/device"
-	"github.com/kikimor/onvif/networking"
-	wsdiscovery "github.com/kikimor/onvif/ws-discovery"
+	"github.com/neirolis/onvif-go/device"
+	"github.com/neirolis/onvif-go/networking"
+	wsdiscovery "github.com/neirolis/onvif-go/ws-discovery"
 )
 
 //DeviceType alias for int

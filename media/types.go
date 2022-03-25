@@ -1,8 +1,8 @@
 package media
 
 import (
-	"github.com/kikimor/onvif/xsd"
-	"github.com/kikimor/onvif/xsd/onvif"
+	"github.com/neirolis/onvif-go/xsd"
+	"github.com/neirolis/onvif-go/xsd/onvif"
 )
 
 type Capabilities struct {

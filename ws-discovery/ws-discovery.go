@@ -4,7 +4,7 @@ import (
 	"strings"
 
 	"github.com/beevik/etree"
-	"github.com/kikimor/onvif/gosoap"
+	"github.com/neirolis/onvif-go/gosoap"
 )
 
 func buildProbeMessage(uuidV4 string, scopes, types []string, nmsp map[string]string) gosoap.SoapMessage {

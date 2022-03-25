@@ -6,7 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"github.com/kikimor/onvif/gosoap"
+	"github.com/neirolis/onvif-go/gosoap"
 )
 
 var invalidResponse = errors.New("invalid response")

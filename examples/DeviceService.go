@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"time"
 
-	goonvif "github.com/kikimor/onvif"
-	"github.com/kikimor/onvif/device"
-	"github.com/kikimor/onvif/xsd/onvif"
+	goonvif "github.com/neirolis/onvif-go"
+	"github.com/neirolis/onvif-go/device"
+	"github.com/neirolis/onvif-go/xsd/onvif"
 )
 
 const (

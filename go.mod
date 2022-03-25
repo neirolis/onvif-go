@@ -1,6 +1,6 @@
-module github.com/kikimor/onvif
+module github.com/neirolis/onvif-go
 
-go 1.15
+go 1.18
 
 require (
 	github.com/beevik/etree v1.1.0
