@@ -58,7 +58,7 @@ type DeviceInfo struct {
 }
 
 func (info *DeviceInfo) Name() string {
-	if len(info.Manufacturer) > 0 {
+	if len(info.Manufacturer) > 0 && !strings.Contains(strings.ToLower(info.Model), strings.ToLower(info.Manufacturer)) {
 		return fmt.Sprintf("%s %s", info.Manufacturer, info.Model)
 	}
 	return info.Model
