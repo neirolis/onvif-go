@@ -341,6 +341,28 @@ func (dev *Device) updateDeltaTime(ctx context.Context) (time.Duration, error) {
 	return dev.deltaTime, nil
 }
 
+func (dev *Device) UpdateDeviceInfo(ctx context.Context) (DeviceInfo, error) {
+	resp := dev.CreateRequest(device.GetDeviceInformation{}).WithContext(ctx).Do()
+	if resp.Error() != nil {
+		return dev.info, resp.Error()
+	}
+
+	deviceInformationResponse := device.GetDeviceInformationResponse{}
+	if err := resp.Unmarshal(&deviceInformationResponse); err != nil {
+		return dev.info, err
+	}
+
+	fmt.Printf("RESP: %+v\n", deviceInformationResponse)
+
+	dev.info.Manufacturer = deviceInformationResponse.Manufacturer
+	dev.info.Model = deviceInformationResponse.Model
+	dev.info.FirmwareVersion = deviceInformationResponse.FirmwareVersion
+	dev.info.SerialNumber = deviceInformationResponse.SerialNumber
+	dev.info.HardwareId = deviceInformationResponse.HardwareId
+
+	return dev.info, nil
+}
+
 // ReplaceHostToXAddr replacing host:port on string to dev.params.Xaddr.
 // NAT needed.
 func (dev *Device) ReplaceHostToXAddr(u string) (string, error) {
