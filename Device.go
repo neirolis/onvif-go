@@ -352,8 +352,6 @@ func (dev *Device) UpdateDeviceInfo(ctx context.Context) (DeviceInfo, error) {
 		return dev.info, err
 	}
 
-	fmt.Printf("RESP: %+v\n", deviceInformationResponse)
-
 	dev.info.Manufacturer = deviceInformationResponse.Manufacturer
 	dev.info.Model = deviceInformationResponse.Model
 	dev.info.FirmwareVersion = deviceInformationResponse.FirmwareVersion
