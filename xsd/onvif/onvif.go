@@ -803,7 +803,7 @@ type Mpeg4Options struct {
 	GovLengthRange         IntRange
 	FrameRateRange         IntRange
 	EncodingIntervalRange  IntRange
-	Mpeg4ProfilesSupported Mpeg4Profile
+	Mpeg4ProfilesSupported []Mpeg4Profile
 }
 
 type H264Options struct {
@@ -811,7 +811,7 @@ type H264Options struct {
 	GovLengthRange        IntRange
 	FrameRateRange        IntRange
 	EncodingIntervalRange IntRange
-	H264ProfilesSupported H264Profile
+	H264ProfilesSupported []H264Profile
 }
 
 type VideoEncoderOptionsExtension struct {
