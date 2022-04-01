@@ -807,7 +807,7 @@ type Mpeg4Options struct {
 }
 
 type H264Options struct {
-	ResolutionsAvailable  VideoResolution
+	ResolutionsAvailable  []VideoResolutionResponse
 	GovLengthRange        IntRange
 	FrameRateRange        IntRange
 	EncodingIntervalRange IntRange
